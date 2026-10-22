@@ -57,3 +57,17 @@ No P0, P1 or P2 visual blockers remain in the eight checked desktop states. Mino
 Two user-requested review agents inspected the changed paths. Their findings were addressed: row spacing accommodates instruction badges and add controls, and prompt-token insertion plus render-time focus restoration prefer the active modal over the sidebar copy. API-key presence indicates local configuration only, not successful provider authentication. Planning discovery filters the model catalog for image input and text output; real provider requests remain for user-led testing.
 
 The follow-up variable walkthrough and sidebar Usage examples entry passed the focused browser fixture, including live replacement text and applying an example to the selected image. `.polyglot-test/saved-key-check.cjs` passed isolated checks for session-to-local migration, local restoration, shared edits, explicit removal and storage failures. No real key was inspected. Recovery remains limited to browser storage for the same origin; unavailable keys from closed session-only tabs or other origins cannot be recovered by this change.
+
+## Visual refinement, 22 October 2026
+
+Checkpoint before edits: `c35b329` (`Save nested polyglot workspace before visual polish`).
+
+Refined the graphite panel surfaces, coral actions and selection outlines, image placeholders, type sizes, preset category buttons, editor close control, and template spacing against the eight reference images. The run heading now shares its row with Usage examples. Fixed the size-map segments collapsing to zero height inside their button. At tablet widths the inspector moves below the canvas; the sequence table scrolls within its editor instead of crushing text into narrow columns.
+
+Verification: `.polyglot-test/visual-polish-check.cjs` runs an isolated headless Chrome session with an embedded loopback server. Screenshots and reports are in `.polyglot-test/visual-polish/`. All eight states passed at 1584 x 992, including template/instruction bounds, loaded icons, preset category switching, and the real build with five images and two payload round-trips. Additional configure and sequence-review captures at widths 1280, 768 and 390 passed without horizontal document overflow or page exceptions. Screenshots were visually inspected; narrow sequence tables intentionally scroll inside the editor. Image generation was replaced with local fixtures; real provider integration was not tested.
+
+## Ready-to-build examples, 22 October 2026
+
+Added a distinct sidebar entry with three complete examples: one photo with an LSB message, a three-image chain, and one photo containing two child images. Each loads bundled PNG bytes, filenames, prompts and README text, then opens the build review. No typing, API key or generation is required. All carriers are fetched and decoded before replacing the current run; existing edits retain the replacement confirmation.
+
+`.polyglot-test/ready-examples-check.cjs` verified all three through the actual build: image decoding, ZIP extraction and file contents passed; the LSB message also passed its round-trip check. Generation was configured to throw if called, and the isolated browser had no API key. Cancellation and an injected failed image fetch both preserved the existing layer IDs. The 390-pixel picker had no horizontal document overflow. Evidence is in `.polyglot-test/visual-polish/examples-checks.json` and `example-*-ready.png` / `example-*-built.png`.
