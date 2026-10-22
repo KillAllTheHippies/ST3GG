@@ -70,9 +70,10 @@ collapsible preset library, run configuration, a pan/zoom containment canvas and
 a selected-layer inspector. The 36 presets cover containers, branching structures,
 AI image sequences, all nine image encoders and imported-edit examples.
 
-The workspace follows the approved eight-screen design: a full-window graphite
-layout, coral controls, independently scrolling sidebars and contextual editors
-under the layer canvas. The ST3GG menu switches to the other application tabs.
+The workspace uses the same black, green and cyan palette and monospace type as
+the other application tabs. The shared banner and horizontal navigation stay
+visible above the workspace. Independently scrolling sidebars and contextual
+editors sit around the layer canvas; **New run** starts a fresh nested-image run.
 Local font, icon and preset-preview sources are recorded in
 [`assets/polyglot/SOURCES.md`](assets/polyglot/SOURCES.md).
 

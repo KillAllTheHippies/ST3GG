@@ -77,3 +77,19 @@ Added a distinct sidebar entry with three complete examples: one photo with an L
 Checkpoint before changes: `77bdd1b`. Nest image now opens an image chooser with five bundled examples and browser-local image history. The inspector also exposes Choose from gallery. Generated, uploaded and reused carrier bytes are saved in IndexedDB, with content-hash deduplication and an in-memory fallback when storage is unavailable. Existing image files and nested archives are not cloned with the carrier. The examples shortcut is larger and filled gold; action buttons, active options, focus indicators and selected-layer borders use gold.
 
 `.polyglot-test/gallery-check.cjs` passed in isolated Chrome: nest from a bundled image, build and validate all four layers, reload and select a previously saved carrier, create another image through the dialog, and use bundled images with an injected IndexedDB failure. It also captured desktop and 390-pixel gallery screenshots with no page overflow or runtime exceptions. Computed styles confirmed gold for the primary action, selected node and examples shortcut. Image history is scoped to this browser and origin; previously discarded images from before this feature cannot be recovered.
+
+
+## Shared app navigation and styling, 22 October 2026
+
+Checkpoint `389d41d` preserves the gallery and OpenRouter connection work. The
+nested workspace now keeps the main banner and horizontal application tabs
+visible. Its duplicate ST3GG menu is removed; New run stays in the workspace
+header. Palette, typography, controls, focus outlines, selected layers, gallery
+and review surfaces now follow the main app's black, green, cyan and monospace
+style. The sidebar and canvas workflow remains available.
+
+`.polyglot-test/style-match-check.cjs` passed in isolated Chrome: all six main
+tabs remain visible, navigation preserves layer IDs, an included image builds
+and validates, and there is no horizontal document overflow at 1436, 1000, 768
+or 390 pixels. The script checks computed colors and fonts and captures desktop,
+build and responsive screenshots under `.polyglot-test/style-match/`.
