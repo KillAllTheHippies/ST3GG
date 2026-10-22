@@ -93,3 +93,17 @@ tabs remain visible, navigation preserves layer IDs, an included image builds
 and validates, and there is no horizontal document overflow at 1436, 1000, 768
 or 390 pixels. The script checks computed colors and fonts and captures desktop,
 build and responsive screenshots under `.polyglot-test/style-match/`.
+
+
+## Model-settings recovery action, 22 October 2026
+
+API-key and Model-settings alerts now include Open model settings beside Dismiss.
+The action clears the alert, expands the sidebar section, scrolls it into view
+and focuses the key field. Model settings also remains available when the run
+uses local images, so an individual AI layer can connect without changing the
+run's source. The header connection action uses the same destination.
+
+`.polyglot-test/model-settings-check.cjs` passed in isolated Chrome at 1617 and
+390 pixels: the key field was expanded, visible and focused, layer IDs and labels
+were retained, unrelated errors had no settings shortcut, and Dismiss still
+worked. No API requests or live keys were used.

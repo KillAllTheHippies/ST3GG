@@ -224,7 +224,7 @@
                 try { promptText=promptFor(node); }
                 catch(e){return { label: `Set layer ${layerNumber(node)} prompt variables`, detail: e.message, kind:'prompt',run:()=>{expanded.add(`prompt-template-${node.id}`);expanded.add(`prompt-variables-${node.id}`);focusPrompt(node);} };}
                 if (!promptText.trim()||missingImageDescription(node)) return { label: `Describe layer ${layerNumber(node)} image`, detail: `Set the image description for ${node.name}.`, kind: 'prompt', run: () => focusPrompt(node) };
-                if (!ST3GGImageAgent.settings().apiKey) return { label: 'Connect image model', detail: 'Add the Agent key in Model settings to generate images.', kind: 'connection', run: () => { expanded.add('models'); render(); const input=document.querySelector('[data-focus="api-key"]');input?.focus();input?.scrollIntoView({block:'center'}); } };
+                if (!ST3GGImageAgent.settings().apiKey) return { label: 'Connect image model', detail: 'Add the Agent key in Model settings to generate images.', kind: 'connection', run: openModelSettings };
             }
             return { ...imageAction(node), detail: `Layer ${layerNumber(node)}: ${node.name}`, kind: 'image' };
         }
@@ -544,9 +544,14 @@
             const ref=el('div',null,'nw-reference');parent.append(ref);ref.append(el('label','Reference image (optional)'));
             if(config.reference){const im=el('img');im.src=config.reference;im.alt='Sequence reference';ref.append(im);}
             const refAction=button(ref,config.reference?'Replace reference image…':'Add a reference image',async()=>{const[f]=await pick('image/*');if(f){config.reference=await dataURL(f);runTouched=true;render();}},config.reference?'quiet':'nw-reference-empty');if(!config.reference)refAction.prepend(icon('photo'));
-            disclosure(parent,'Model settings','models',drawModelSettings);
         }
+        disclosure(parent,'Model settings','models',drawModelSettings);
         button(parent,'Manage prompt & file variables',()=>{view='variables';render();},'quiet');
+    }
+    function openModelSettings() {
+        error='';expanded.add('models');render();
+        const input=document.querySelector('.nw-run [data-focus="api-key"]');
+        input?.focus({preventScroll:true});input?.scrollIntoView({block:'center',behavior:'instant'});
     }
     function agentModel() { const value=$('aiagent-model').value;return value==='custom'?$('aiagent-custom-model').value.trim():value; }
     function modelControl(parent,label,value,change,models,discover,key,defaultModel='') {
@@ -1021,7 +1026,7 @@
         for(const url of objectURLs)URL.revokeObjectURL(url);objectURLs=[];
         host.replaceChildren();const frame=el('div',null,'nw-root');frame.id='nw-root';host.append(frame);
         drawHeader(frame,selectedNode);
-        if(error){const alert=el('div',null,'nw-error');alert.setAttribute('role','alert');alert.append(el('span',error));button(alert,'Dismiss',()=>{error='';render();});frame.append(alert);}
+        if(error){const alert=el('div',null,'nw-error');alert.setAttribute('role','alert');alert.append(el('span',error));const actions=row(alert,'nw-error-actions');if(/API key|Model settings/i.test(error))button(actions,'Open model settings',openModelSettings);button(actions,'Dismiss',()=>{error='';render();});frame.append(alert);}
         const work=el('div',null,'nw-workspace');frame.append(work);const left=el('aside',null,'nw-run'),center=el('main',null,'nw-center'),right=el('aside',null,'nw-inspector');work.append(left,center,right);
         const canvasShell=el('section',null,'nw-canvas-shell');center.append(canvasShell);center.dataset.editor=view?'open':'closed';center.dataset.view=view;
         const controls=[left,center,right];for(const n of controls)n.inert=busy;
