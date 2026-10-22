@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>🥚 STE.GG 🦕</title>
     <link rel="stylesheet" href="polyglot.css">
-    <link rel="stylesheet" href="polyglot-workspace.css?v=20261022-examples1">
+    <link rel="stylesheet" href="polyglot-workspace.css?v=20261022-gallery1">
     <style>
         :root {
             --primary: #00ff41;
@@ -3214,13 +3214,14 @@
                     </p>
 
                     <div class="form-group">
-                        <label>OpenRouter API Key</label>
+                        <label for="aiagent-api-key">OpenRouter API Key</label>
+                        <div id="aiagent-openrouter-auth"></div>
                         <div style="display: flex; gap: 8px;">
                             <input type="password" id="aiagent-api-key" class="input" placeholder="sk-or-..." style="flex: 1;">
                             <button class="btn btn-secondary btn-sm" onclick="toggleApiKeyVisibility()" id="aiagent-key-toggle">👁</button>
                         </div>
                         <div class="text-muted" style="font-size: 10px; margin-top: 4px;">
-                            Get your key at <a href="https://openrouter.ai/keys" target="_blank" style="color: var(--secondary);">openrouter.ai/keys</a>
+                            Or paste a key from <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" style="color: var(--secondary);">openrouter.ai/keys</a>. Keys are saved in this browser until disconnected or cleared.
                         </div>
                     </div>
 
@@ -23324,11 +23325,13 @@ Binary data (${formatSize(data.length)})
     <script src="polyglot-core.js"></script>
     <script src="polyglot-demos.js"></script>
     <script src="st3gg-image-agent.js?v=20261022-reference7"></script>
+    <script src="st3gg-openrouter-auth.js?v=20261022-oauth1"></script>
     <script src="polyglot-size.js"></script>
     <script src="polyglot-payloads.js"></script>
     <script src="polyglot-presets.js?v=20261022-reference7"></script>
     <script src="polyglot-help.js"></script>
-    <script src="polyglot-workspace.js?v=20261022-examples1"></script>
+    <script src="polyglot-image-library.js"></script>
+    <script src="polyglot-workspace.js?v=20261022-oauth1"></script>
     <script src="polyglot.js"></script>
 </body>
 </html>

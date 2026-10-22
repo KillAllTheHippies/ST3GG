@@ -107,6 +107,7 @@
     }
     async function choosePreset(preset, initial = false) {
         if (!initial && (runTouched || [...fileDraftsPending()].length) && !confirm(`Load “${preset.title}” and replace the current run, including pending edits?`)) return;
+        for(const node of nodes())rememberImage(node);
         activePreset = preset.id; previewPreset = preset.id; const n = C.layer(preset.names?.[0] + '.png'); n.name = preset.names?.[0] ? preset.names[0] + '.png' : 'outer.png';
         api.replaceRoot(n); root = n; knownRoot = root; selected = root.id;
         config.count = 1; config.shape = preset.shape; config.source = preset.source; config.width = 1024; config.height = 1024; config.brief = preset.brief || '';config.reference='';
@@ -168,6 +169,7 @@
                 layers[0].entries.push({name:'decoding.txt',kind:'file',bytes:textEncoder.encode('Open the downloaded landscape.png in ST3GG Decode. Select LSB, RGB channels and 1 bit to read the hidden message. No password is needed.\n')});
             }
             C.check(signal);
+            for(const node of nodes())rememberImage(node);
             root=layers[0];knownRoot=root;selected=root.id;api.replaceRoot(root);
             config.count=layers.length;config.shape=example.shape;config.source='upload';config.brief=example.brief;config.reference='';
             const dims=PolySize.dimensions(root.image);config.width=dims.width;config.height=dims.height;
@@ -275,7 +277,39 @@
         for(const result of results)if(result.autoExtracted?.downloadUrl)URL.revokeObjectURL(result.autoExtracted.downloadUrl);
         delete node.detection;
     }
-    function putImage(node, bytes) { clearDetection(node);node.image = bytes; node.baseImage = bytes; node.imageSourceReady = true; dirty(node, true); alignName(node); }
+    function rememberImage(node){if(node.image)void PolyImageLibrary.remember(node.name,node.baseImage||node.image).catch(()=>{});}
+    function drawImageGallery(parent,node,close){
+        const heading=el('h3','Choose an existing image');parent.append(heading);
+        note(parent,'Reuse an example image or an image from your previous work. Only the image is copied; files and nested layers stay in their original project.');
+        const grid=el('div',null,'nw-image-gallery');parent.append(grid);
+        const use=async bytes=>{
+            if(node.original&&!confirm('Replace this carrier image? Existing unknown image payloads may be lost. Archive files are retained.'))return;
+            putImage(node,bytes.slice());node.imageSource='upload';generated=nodes().every(n=>n.image);close();render();
+        };
+        const tile=(name,bytes,source)=>{
+            const card=el('div',null,'nw-library-card');grid.append(card);
+            const choose=button(card,'',async()=>{
+                let data=bytes;
+                if(typeof data==='string'){
+                    const response=await fetch(data);if(!response.ok)throw Error('Could not load this example image. Please try again.');
+                    data=new Uint8Array(await response.arrayBuffer());
+                }
+                // The dialog may have been closed while an image was loading.
+                if(!parent.isConnected||imageDialogLayer!==node.id)return;
+                await use(data);
+            },'nw-library-choice');
+            choose.setAttribute('aria-label','Use '+name);image(choose,bytes,'nw-library-image');choose.append(el('strong',name));note(card,source);
+        };
+        for(const name of ['landscape','valley','tree','branch','leaf'])tile(name+'.png',`assets/polyglot/previews/${name}.png`,'Example image');
+        const status=note(parent,'Loading saved images…');
+        Promise.all(nodes().filter(n=>n.image).map(n=>PolyImageLibrary.remember(n.name,n.baseImage||n.image)))
+            .then(()=>PolyImageLibrary.list()).then(items=>{
+                if(!parent.isConnected)return;
+                for(const item of items)tile(item.name,item.bytes,'Saved in this browser');
+                status.textContent=PolyImageLibrary.warning||'Generated and uploaded images are saved in this browser for reuse.';
+            }).catch(()=>{if(parent.isConnected)status.textContent='Saved images could not be loaded. The example images are still available.';});
+    }
+    function putImage(node, bytes) { if(node.image)rememberImage(node);void PolyImageLibrary.remember(node.name,bytes).catch(()=>{});clearDetection(node);node.image = bytes; node.baseImage = bytes; node.imageSourceReady = true; dirty(node, true); alignName(node); }
     async function uploadImage(node, resize = false) {
         const [file] = await pick('image/*'); if (!file) return;
         if (node.original && !confirm(`Replace ${node.name}’s carrier? Existing image payloads may be invalidated. Its archive contents are retained.`)) return;
@@ -524,9 +558,11 @@
         if(defaultModel){const reset=button(control,'',()=>{change('');render();},'quiet','Use Agent default: '+defaultModel);reset.append(icon('arrow-left'));reset.setAttribute('aria-label',reset.title);}
     }
     function drawModelSettings(body) {
+        ST3GGOpenRouterAuth.mount(body, 'nw-button quiet');
         const settings=ST3GGImageAgent.settings(),status=el('span',settings.apiKey?'Key loaded':'No key loaded','nw-key-status');status.id='nw-key-status-'+uid();status.setAttribute('role','status');
-        const keyField=field(body,'Agent API key',settings.apiKey,v=>{ST3GGImageAgent.configure({apiKey:v});for(const indicator of document.querySelectorAll('.nw-key-status'))indicator.textContent=v.trim()?'Key loaded':'No key loaded';refreshNextAction();},{type:'password',key:'api-key',live:true});
+        const keyField=field(body,'Agent API key',settings.apiKey,v=>{ST3GGImageAgent.configure({apiKey:v});$('aiagent-api-key').dispatchEvent(new Event('input'));for(const indicator of document.querySelectorAll('.nw-key-status'))indicator.textContent=v.trim()?'Key loaded':'No key loaded';refreshNextAction();},{type:'password',key:'api-key',live:true});
         keyField.parentElement.classList.add('nw-key-field');keyField.parentElement.append(status);keyField.setAttribute('aria-describedby',status.id);
+        note(body,'Keys are saved in this browser. Disconnect removes the saved key; revoke it in OpenRouter to disable it everywhere.');
         modelControl(body,'Image model',settings.model,v=>ST3GGImageAgent.configure({model:v}),modelList,async()=>{modelList=await ST3GGImageAgent.models();},'image-model');
         modelControl(body,'Vision / planning model',config.planModel||agentModel(),v=>{config.planModel=v.trim();},planningModels,async()=>{planningModels=await ST3GGImageAgent.models(undefined,'planning');},'plan-model',agentModel());
     }
@@ -630,7 +666,7 @@
     }
     function addChild(parent) {
         let at=1,name;do{name=`nested-${at++}.png`;}while(parent.entries.some(e=>e.name===name));
-        const n=C.layer(name);n.parent=parent;n.canvasBelowParent=true;n.prompt=sequencePrompt(n,nodes().length,nodes().length+1);parent.entries.push({name,child:n,kind:'layer'});dirty(parent);selected=n.id;config.count=nodes().length;reviewed=false;generated=false;autoFit=true;view='';render();
+        const n=C.layer(name);n.parent=parent;n.canvasBelowParent=true;n.prompt=sequencePrompt(n,nodes().length,nodes().length+1);parent.entries.push({name,child:n,kind:'layer'});dirty(parent);selected=n.id;config.count=nodes().length;reviewed=false;generated=false;autoFit=true;view='';imageDialogLayer=n.id;render();
     }
     function drawInspector(parent,node) {
         const listOfLayers=nodes(),at=listOfLayers.indexOf(node),level=node.uiLevel||'Easy';
@@ -659,6 +695,7 @@
         const imageActions=row(imageParent,'nw-image-actions'),action=imageAction(node);
         button(imageActions,settingsFor(node).source==='upload'?(node.image?'Replace image file…':'Choose image file…'):node.image?'Regenerate this image':'Generate this image',action.run,node.image?'':'primary');
         if(settingsFor(node).source!=='upload')button(imageActions,node.image?'Upload replacement':'Choose image file…',()=>uploadImage(node));
+        button(imageActions,'Choose from gallery…',()=>{imageDialogLayer=node.id;render();});
         const nextMissing=node.image&&nextMissingImage(node);if(nextMissing)button(imageParent,`Continue to ${nextMissing.name}`,()=>select(nextMissing),'nw-image-continue nw-recommended');
         if(node.image&&level!=='Easy'&&!compactImage)button(imageParent,'Resize to run dimensions',async()=>{if(node.original&&!confirm('Resize this image? Unknown image payloads may be lost. Archive entries are retained.'))return;await api.busy(async signal=>{const bytes=await normalizeImage(node.image,settingsFor(node));C.check(signal);putImage(node,bytes);});},'quiet');
         const techniqueHeader=row(parent,'nw-section-heading');techniqueHeader.id=`nw-payloads-${node.id}`;techniqueHeader.append(el('h3','Payload techniques'));
@@ -952,23 +989,25 @@
     }
     function drawImageDialog(frame) {
         const node=nodes().find(n=>n.id===imageDialogLayer);if(!node){imageDialogLayer=null;return;}
-        const dialog=el('dialog',null,'nw-image-dialog');frame.append(dialog);
+        const dialog=el('dialog',null,'nw-image-dialog nw-gallery-dialog');frame.append(dialog);
         dialog.setAttribute('aria-labelledby','nw-image-dialog-title');
-        const close=()=>{imageDialogLayer=null;dialog.close();dialog.remove();document.querySelector(`[data-layer-id="${node.id}"] .nw-needs-image`)?.focus();};
+        const close=()=>{imageDialogLayer=null;dialog.close();dialog.remove();document.querySelector(`[data-layer-id="${node.id}"]`)?.focus();};
         const heading=row(dialog,'nw-dialog-heading');const title=el('h2',`Image for ${node.name}`);title.id='nw-image-dialog-title';heading.append(title);button(heading,'×',close,'quiet');
         note(dialog,`Layer ${layerNumber(node)} of ${nodes().length}${node.parent?' · Inside '+node.parent.name:' · Outermost image'}`);
-        field(dialog,'Image source',settingsFor(node).source,v=>{node.imageSource=v;runTouched=true;render();},{choices:[['ai','Generate with AI'],['local','Create locally'],['upload','Use an image file']]});
+        drawImageGallery(dialog,node,close);
+        const other=el('details',null,'nw-disclosure');other.open=expanded.has('gallery-create');other.ontoggle=()=>{if(other.isConnected){if(other.open)expanded.add('gallery-create');else expanded.delete('gallery-create');}};other.append(el('summary','Upload or create a new image'));dialog.append(other);const sourcePanel=el('div');other.append(sourcePanel);
+        field(sourcePanel,'Image source',settingsFor(node).source,v=>{node.imageSource=v;runTouched=true;render();},{choices:[['ai','Generate with AI'],['local','Create locally'],['upload','Use an image file']]});
         const source=settingsFor(node).source;
         if(source!=='upload'){
-            const dimensions=row(dialog);const size=settingsFor(node);
+            const dimensions=row(sourcePanel);const size=settingsFor(node);
             field(dimensions,'Width (px)',size.width,v=>{node.resolution={...settingsFor(node),width:validPixels(v)};runTouched=true;},{type:'number',key:'dialog-width'});
             field(dimensions,'Height (px)',size.height,v=>{node.resolution={...settingsFor(node),height:validPixels(v)};runTouched=true;},{type:'number',key:'dialog-height'});
         }
         if(source==='ai'){
-            drawPrompt(dialog,node);
-            disclosure(dialog,'Image model settings','image-dialog-model',drawModelSettings);
+            drawPrompt(sourcePanel,node);
+            disclosure(sourcePanel,'Image model settings','image-dialog-model',drawModelSettings);
         }
-        const actions=row(dialog,'nw-dialog-actions');button(actions,'Cancel',close,'quiet');
+        const actions=row(sourcePanel,'nw-dialog-actions');button(actions,'Cancel',close,'quiet');
         const action=imageAction(node);button(actions,action.label,async()=>{imageDialogLayer=null;dialog.close();dialog.remove();await action.run();},'primary');
         dialog.addEventListener('cancel',e=>{e.preventDefault();e.stopPropagation();close();});
         dialog.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();}});
@@ -977,7 +1016,7 @@
     }
     function render() {
         if(!api||!root)return;
-        if(api.getRoot()!==knownRoot){root=api.getRoot();knownRoot=root;selected=root.id;generated=nodes().every(n=>n.image);reviewed=true;}
+        if(api.getRoot()!==knownRoot){for(const node of nodes())rememberImage(node);root=api.getRoot();knownRoot=root;selected=root.id;generated=nodes().every(n=>n.image);reviewed=true;}
         const selectedNode=current();selected=selectedNode.id;
         const host=$('poly-flow'),focused=document.activeElement,key=focused?.dataset?.focus,selection=focused&&'selectionStart'in focused?[focused.selectionStart,focused.selectionEnd]:null;
         const pagePosition={left:window.scrollX,top:window.scrollY};
@@ -998,10 +1037,11 @@
         for(const [name,top]of panelPositions){const panel=host.querySelector('.'+name);if(panel)panel.scrollTop=top;}
         window.scrollTo({...pagePosition,behavior:'instant'});
     }
+    document.addEventListener('st3gg-openrouter-key-change',()=>refreshNextAction());
     window.PolyFlow={
         init(bridge){api=bridge;root=api.getRoot();knownRoot=root;selected=root.id;if(!root.image&&!root.entries.length)choosePreset(PolyPresets.find(p=>p.id==='chain3'),true);document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(help){help=null;render();}else if(view){view='';render();}}});document.addEventListener('click',e=>{for(const menu of document.querySelectorAll('.nw-file-menu[open],.nw-brand-menu[open],.nw-phase-menu[open]'))if(!menu.contains(e.target))menu.open=false;});window.addEventListener('resize',()=>{autoFit=true;render();});document.querySelector('.tabs [data-tab="polyglot"]')?.addEventListener('click',()=>requestAnimationFrame(()=>{autoFit=true;render();}));if(location.hash==='#polyglot'){document.querySelector('.tabs [data-tab="polyglot"]')?.click();requestAnimationFrame(()=>render());}},
         render,error(message){error=message;render();},status(message){progress=message;if(busy||message)render();},setBusy(value){busy=value;if(value){error='';progress='';}render();},
-        projectLoaded(){if(!api)return;root=api.getRoot();knownRoot=root;selected=root.id;generated=nodes().every(n=>n.image);reviewed=true;activePreset='';view='plan';activeFile=null;activeStep=null;lastOutput=null;config.count=nodes().length;config.source='upload';runTouched=true;render();},
+        projectLoaded(){if(!api)return;for(const node of nodes())rememberImage(node);root=api.getRoot();knownRoot=root;for(const node of nodes())rememberImage(node);selected=root.id;generated=nodes().every(n=>n.image);reviewed=true;activePreset='';view='plan';activeFile=null;activeStep=null;lastOutput=null;config.count=nodes().length;config.source='upload';runTouched=true;render();},
         showTools(node){selected=node.id;node.uiLevel='Expert';activeStep=P.steps(node)[0]?.id;view='payload';render();}
     };
 })();

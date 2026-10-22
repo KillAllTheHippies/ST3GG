@@ -47,6 +47,24 @@
 
 ## Nested polyglots browser workspace
 
+### Connect OpenRouter
+
+Choose **Connect OpenRouter** in Agent settings or the nested workspace's **Model
+settings**. Authorize ST3GG in the separate window; the app exchanges the returned
+code using OAuth PKCE (SHA-256) and uses the new key for analysis, planning and image
+generation. Your workspace stays open during sign-in. AI requests use your own
+OpenRouter credits. No client secret or backend is needed.
+
+Serve the app over HTTPS or localhost, including `openrouter-callback.html` and its
+script at the same path as `index.html`. Opening `index.html` directly uses
+OpenRouter's manual-code flow: authorize, then paste the displayed authorization
+code into ST3GG and choose **Complete connection**.
+
+Keys use the app's existing browser local/session storage. **Disconnect** clears
+both saved copies in this browser; to revoke the key itself, use
+[OpenRouter key settings](https://openrouter.ai/keys). Pasting a key remains
+available. See [OpenRouter's OAuth guide](https://openrouter.ai/docs/guides/overview/auth/oauth).
+
 Open `index.html#polyglot` for the unified run workspace. The interface uses a
 collapsible preset library, run configuration, a pan/zoom containment canvas and
 a selected-layer inspector. The 36 presets cover containers, branching structures,
