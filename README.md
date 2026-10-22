@@ -45,6 +45,90 @@
 
 ---
 
+## Nested polyglots browser workspace
+
+Open `index.html#polyglot` for the unified run workspace. The interface uses a
+collapsible preset library, run configuration, a pan/zoom containment canvas and
+a selected-layer inspector. The 36 presets cover containers, branching structures,
+AI image sequences, all nine image encoders and imported-edit examples.
+
+The workspace follows the approved eight-screen design: a full-window graphite
+layout, coral controls, independently scrolling sidebars and contextual editors
+under the layer canvas. The ST3GG menu switches to the other application tabs.
+Local font, icon and preset-preview sources are recorded in
+[`assets/polyglot/SOURCES.md`](assets/polyglot/SOURCES.md).
+
+The flow is **Configure a layer → Create or choose its image → Continue to the next
+layer → Build & download**. Numbered layer navigation and contextual actions identify
+the next unfinished image. Sequence review and batch creation are optional; batch
+creation fills missing images while preserving completed ones. Image prompts,
+resolution, files and payloads remain editable in place. Local carriers and archive
+editing work without AI. AI sequences reuse Agent credentials, accept reference
+images and exact output dimensions, and can use the selected vision model to plan
+per-layer prompts. Generated carriers populate the layers directly.
+Image prompts support the same `{{Variables}}` as file templates, with insertion
+controls, editable per-layer values and a resolved preview. `{{layer.scene}}`,
+`{{layer.index}}`, `{{layer.count}}` and `{{sequence.brief}}` adapt the prompt to the
+selected layer. Missing variables are reported before image generation starts.
+New runs default to AI image creation, with file uploads and local generation
+available in the same controls. The header groups run setup, layer editing and
+output review; its next action follows the selected layer's current state. Preset
+rows show a name and image count, with one selected description before loading.
+Payload scans show ranked candidates and decoding actions, with further matches
+collapsed and scan summaries available as downloads instead of raw byte dumps.
+The **Needs image** control opens the selected layer's image setup, including
+editable usage examples. New nested images appear below their containing image.
+Model settings show whether a key is loaded and which image/planning models are
+selected; both have discovery pickers. **Manage prompt & file variables** keeps
+shared defaults and per-layer overrides together in one editor.
+**Usage examples** opens editable image-prompt examples directly from the sidebar.
+The variable editor includes a live replacement example and explains how to use
+values in image prompts and text-file templates. The shared Agent key restores
+from session or persistent browser storage for the same site address; clearing
+the key removes both copies. Keys saved under a different address are separate.
+
+Each layer exposes **Easy / Medium / Expert** views of its settings and supports
+independent text/file payload steps. Compatibility rules prevent overlapping
+encodings, permit disjoint low-bit colour channels, require PNG metadata after
+pixel encodings, and keep JPEG/F5 exclusive with the PNG techniques. PNG chunk
+insertion preserves existing IDAT bytes and implements deflate for zTXt. Builds
+automatically recover and byte-compare every newly encoded payload from the
+complete final image, then validate the image and nested ZIP contents. The `?`
+controls provide progressively detailed technique guides in place.
+
+**Templates…** provides template creation, editing and application to selected
+layers. Filename/content patterns support `{{Variables}}`, including derived
+`{{layer.index}}`, `{{layer.filename}}`, `{{layer.depth}}` and `{{project.name}}`.
+Project defaults can be overridden per layer. Rendered previews update during
+editing; **Update linked files** writes the generated files. Manual file edits
+become overrides. Existing files require explicit confirmation before replacement.
+
+Every payload step can link decoding instructions to any layer, as an archive text
+section or another compatible encoded payload. Instruction text records method,
+settings and decoding order. Linked sections preserve surrounding file contents.
+Instruction files are archive contents and are never executed by the application.
+
+Imports discover readable nested PNG/JPEG + ZIP files. Archive-only edits retain
+unchanged carrier bytes and ordinary file contents; child changes rebuild outward.
+Opaque archive entries are preserved with partial validation. ZIP32 constraints,
+unsupported ZIP64/split archives and actual browser allocation failures are reported
+without arbitrary nesting or file-size caps. The size breakdown attributes carrier,
+contained-file, nested-output and ZIP overhead contributions without double-counting.
+
+This handoff is for user-led interactive testing. Syntax checks and targeted
+Chrome captures of the eight approved desktop states passed; image generation
+used local fixtures. See [`design-qa.md`](design-qa.md) for scope and evidence.
+Broad regression/stress testing is deferred until feedback. The older
+`test_polyglot.cjs` UI selectors describe the previous interface
+and will need updating before its UI portion can validate this redesign. Existing
+ZIP/image engine checks and prior reader evidence do not establish compatibility
+for every new multi-payload combination.
+
+Drafts, template sources and encoding configuration remain in the open browser tab;
+there is no editable project-save format yet. Download a built output before closing.
+Reopening recovers the nested contents and preserves unknown image payload bytes,
+while decoding unknown payloads still requires the applicable technique/settings.
+
 ## ⊰ What Is ST3GG? ⊱
 
 [STE.GG](https://ste.gg)‍​‌​‌​​​​​‌​​‌‌​​​‌​​‌​​‌​‌​​‌‌‌​​‌​‌‌​​‌​​‌​​​​​​‌​​‌‌​​​‌​​‌‌‌‌​‌​‌​‌‌​​‌​​​‌​‌​‌​‌​​‌‌​​‌​​​​​​‌​‌‌​​‌​‌​​‌‌‌‌​‌​‌​‌​‌‍ is a feature-rich, open-source steganography toolkit that hides secret data inside images, audio, documents, network packets, and more — using **100+ encoding techniques** across every file format imaginable.
