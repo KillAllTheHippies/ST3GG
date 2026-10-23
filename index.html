@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>🥚 STE.GG 🦕</title>
     <link rel="stylesheet" href="polyglot.css">
-    <link rel="stylesheet" href="polyglot-workspace.css?v=20261023-gold1">
+    <link rel="stylesheet" href="polyglot-workspace.css?v=20261023-easteregg1">
     <style>
         :root {
             --primary: #00ff41;
@@ -651,7 +651,7 @@
         }
 
         /* Unlock-all easter egg trigger (bottom-right corner) */
-        .unlock-all-trigger {
+        .unlock-all-trigger, .polyglot-trigger {
             position: fixed;
             bottom: 0;
             right: 0;
@@ -661,6 +661,9 @@
             background: transparent;
             pointer-events: auto !important;
         }
+
+        /* Same corner hit area, placed at the upper left for Nested polyglots. */
+        .polyglot-trigger { top: 0; left: 0; bottom: auto; right: auto; }
 
         @keyframes unlock-all-flash {
             0% { box-shadow: 0 0 0 0 rgba(255,0,255,0.7); }
@@ -1454,7 +1457,7 @@
             <button class="tab active" data-tab="encode">Encode</button>
             <button class="tab" data-tab="decode">Decode</button>
             <button class="tab" data-tab="analyze">Analyze</button>
-            <button class="tab" data-tab="polyglot">Nested polyglots</button>
+            <button class="tab" data-tab="polyglot" id="polyglot-tab-btn" style="display: none;">Nested polyglots</button>
             <button class="tab tab-matryoshka" data-tab="matryoshka" id="matryoshka-tab-btn" style="display: none;">🪆 Nested Stegg</button>
             <button class="tab tab-godmode" data-tab="godmode" id="godmode-tab-btn" style="display: none;">🧬 SPECTER</button>
             <button class="tab tab-textlab" data-tab="textlab" id="textlab-tab-btn">Text Lab</button>
@@ -1466,6 +1469,7 @@
             <header class="polyglot-mode-heading">
                 <h1><span aria-hidden="true">◈</span> Nested polyglots <span aria-hidden="true">◈</span></h1>
                 <p>Images within archives. Layers within layers.</p>
+                <button type="button" class="polyglot-deactivate" onclick="deactivatePolyglot()">Deactivate mode</button>
             </header>
             <div id="poly-flow"></div>
             <dialog id="poly-advanced" aria-labelledby="poly-advanced-title">
@@ -3398,6 +3402,9 @@
     <!-- Matryoshka Easter Egg Trigger -->
     <div class="matryoshka-trigger" id="matryoshka-trigger"></div>
 
+    <!-- Nested polyglots Easter Egg Trigger (upper-left corner, triple-click) -->
+    <div class="polyglot-trigger" id="polyglot-trigger"></div>
+
     <!-- Unlock All Easter Eggs Trigger (bottom-right corner, triple-click) -->
     <div class="unlock-all-trigger" id="unlock-all-trigger"></div>
 
@@ -5181,6 +5188,7 @@
             extractedData: null,
             extractedFileName: null,
             matryoshkaMode: false,
+            polyglotMode: false,
             matryoshkaDepth: 3,
             matryoshkaCarriers: [],  // List of {canvas, name, width, height}
             matryoshkaDecodeCanvas: null,  // Separate canvas for Matryoshka decode
@@ -11281,28 +11289,41 @@
         }
 
         // ============== UNLOCK ALL EASTER EGGS (Triple-click bottom-right) ==============
-        let unlockAllClickCount = 0;
-        let unlockAllClickTimer = null;
+        // Share the existing three-click / 800 ms timing between the corner triggers.
+        function easterEggTripleClick(activate) {
+            let clickCount = 0, timer = null;
+            return function (e) {
+                e.stopPropagation();
+                clickCount++;
+                clearTimeout(timer);
+                if (clickCount >= 3) {
+                    clickCount = 0;
+                    activate();
+                } else {
+                    timer = setTimeout(() => { clickCount = 0; }, 800);
+                }
+            };
+        }
+        const handleUnlockAllClick = easterEggTripleClick(activateAllEasterEggs);
+        const handlePolyglotClick = easterEggTripleClick(() => activatePolyglot());
 
-        function handleUnlockAllClick(e) {
-            e.stopPropagation();
-            unlockAllClickCount++;
-
-            if (unlockAllClickTimer) {
-                clearTimeout(unlockAllClickTimer);
-            }
-
-            if (unlockAllClickCount >= 3) {
-                unlockAllClickCount = 0;
-                activateAllEasterEggs();
-            } else {
-                unlockAllClickTimer = setTimeout(() => {
-                    unlockAllClickCount = 0;
-                }, 800);
-            }
+        function activatePolyglot({ navigate = true, announce = true } = {}) {
+            state.polyglotMode = true;
+            const tab = document.getElementById('polyglot-tab-btn');
+            tab.style.display = '';
+            if (navigate) setTimeout(() => { if (state.polyglotMode) tab.click(); }, 100);
+            if (announce) notify('◈ NESTED POLYGLOTS UNLOCKED', 'success');
+        }
+        function deactivatePolyglot() {
+            state.polyglotMode = false;
+            const tab = document.getElementById('polyglot-tab-btn');
+            if (tab.classList.contains('active')) document.querySelector('.tab[data-tab="encode"]').click();
+            tab.style.display = 'none';
+            notify('Nested polyglots mode deactivated', 'info');
         }
 
         function activateAllEasterEggs() {
+            activatePolyglot({ navigate: false, announce: false });
             // Activate Text Lab
             if (!textLabUnlocked) {
                 const textLabTab = document.getElementById('textlab-tab-btn');
@@ -11332,7 +11353,7 @@
             trigger.classList.add('unlock-all-flash');
             setTimeout(() => trigger.classList.remove('unlock-all-flash'), 600);
 
-            notify('🔓 ALL EASTER EGGS UNLOCKED — Text Lab + Nested Stegg + SPECTER', 'success');
+            notify('🔓 ALL EASTER EGGS UNLOCKED — Text Lab + Nested Stegg + SPECTER + Nested polyglots', 'success');
         }
 
         function updateMatryoshkaDepth(value) {
@@ -22841,6 +22862,7 @@ Binary data (${formatSize(data.length)})
             // Tabs
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.addEventListener('click', () => {
+                    if (tab.dataset.tab === 'polyglot' && !state.polyglotMode) return;
                     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
                     tab.classList.add('active');
@@ -23247,6 +23269,7 @@ Binary data (${formatSize(data.length)})
 
             // Unlock-all easter egg trigger (triple-click bottom-right corner)
             document.getElementById('unlock-all-trigger').addEventListener('click', handleUnlockAllClick);
+            document.getElementById('polyglot-trigger').addEventListener('click', handlePolyglotClick);
 
             // Bitplane slider for channel visualization
             document.getElementById('bitplane-slider')?.addEventListener('input', (e) => {
@@ -23338,7 +23361,7 @@ Binary data (${formatSize(data.length)})
     <script src="polyglot-presets.js?v=20261022-reference7"></script>
     <script src="polyglot-help.js"></script>
     <script src="polyglot-image-library.js"></script>
-    <script src="polyglot-workspace.js?v=20261023-gold1"></script>
+    <script src="polyglot-workspace.js?v=20261023-easteregg1"></script>
     <script src="polyglot.js"></script>
 </body>
 </html>

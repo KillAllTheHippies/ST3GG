@@ -221,3 +221,7 @@ body[data-polyglot-theme] .nw-plan th,body[data-polyglot-theme] .nw-ready-exampl
 body[data-polyglot-theme] .nw-help-panel a{color:var(--poly-cool)}
 @media(max-width:1000px){.polyglot-mode-heading{padding:18px 16px}.polyglot-mode-heading h1{font-size:20px}}
 @media(prefers-reduced-motion:reduce){.tabs [data-tab="polyglot"]{transition:none}}
+
+.polyglot-deactivate{display:block;margin:10px auto 0;padding:4px 9px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--poly-muted);font-family:inherit;font-size:11px;line-height:1.4;cursor:pointer}
+.polyglot-deactivate:hover{color:var(--primary);border-color:var(--primary)}
+.polyglot-deactivate:focus-visible{outline:2px solid var(--secondary);outline-offset:3px}

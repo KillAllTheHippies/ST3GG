@@ -14,6 +14,7 @@ const server=require('node:http').createServer((req,res)=>{try{if(req.url.starts
  await call('Browser.getVersion'); await call('Runtime.enable'); await call('Page.enable');
  await call('Page.navigate',{url:'http://127.0.0.1:8767/index.html#polyglot'});
  await waitFor("window.ST3GGOpenRouterAuth && document.querySelectorAll('.nw-node').length===3");
+ await evaluate("activatePolyglot()");await waitFor("document.querySelector('#polyglot-panel').classList.contains('active')");
  await evaluate(`(()=>{const box=document.createElement('div');box.id='auth-test';document.body.append(box);ST3GGOpenRouterAuth.mount(box);window.requests=[];window.open=()=>window.fakePopup={closed:false,close(){this.closed=true},location:{replace(url){window.authURL=url}}};window.fetch=async(url,options)=>{requests.push({url,body:JSON.parse(options.body)});return {ok:true,json:async()=>({key:'sk-or-fixture-oauth'})}};window.deliver=(data,origin=location.origin,source=fakePopup)=>{const event=new MessageEvent('message',{origin,data});Object.defineProperty(event,'source',{value:source});dispatchEvent(event)};window.start=()=>document.querySelector('#auth-test button').click();window.disconnect=()=>document.querySelectorAll('#auth-test button')[1].click();})()`);
  await evaluate('start()'); await waitFor('!!window.authURL');
  const auth=await evaluate(`Object.fromEntries(new URL(authURL).searchParams)`);
@@ -35,6 +36,7 @@ const server=require('node:http').createServer((req,res)=>{try{if(req.url.starts
  await call('Page.navigate',{url:'http://127.0.0.1:8767/openrouter-callback.html?code=fixture-secret&state=fixture'});await waitFor(`!location.search && document.querySelector('#status').textContent.includes('connect again')`);
 
  await call('Page.navigate',{url:'http://127.0.0.1:8767/index.html#polyglot'});await waitFor("!!window.ST3GGOpenRouterAuth && document.querySelectorAll('.nw-node').length===3");
+ await evaluate("activatePolyglot()");await waitFor("document.querySelector('#polyglot-panel').classList.contains('active')");
  await evaluate(`(()=>{const OriginalURL=URL;window.URL=class extends OriginalURL{constructor(input,base){super(input==='https://openrouter.ai/auth'?location.origin+'/mock-auth':input,base)}};window.fetch=async()=>({ok:true,json:async()=>({key:'sk-or-popup-fixture'})});const details=[...document.querySelectorAll('details')].find(n=>n.querySelector('summary')?.textContent==='Model settings');if(!details)throw Error('Model settings missing');details.open=true;details.dispatchEvent(new Event('toggle'));})()`);
  await waitFor(`!!document.querySelector('.nw-run [data-focus="api-key"]')`);
  await evaluate(`const button=[...document.querySelectorAll('.nw-run button')].find(b=>b.textContent==='Connect OpenRouter');if(!button)throw Error('Connect missing from model settings');button.click()`);
@@ -45,6 +47,7 @@ const server=require('node:http').createServer((req,res)=>{try{if(req.url.starts
  const screenshot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(out,'mobile.png'),Buffer.from(screenshot.data,'base64'));
  await evaluate(`[...document.querySelectorAll('.nw-run button')].find(b=>b.textContent==='Disconnect').click()`);
  await call('Page.navigate',{url:require('node:url').pathToFileURL(path.resolve('index.html')).href+'#polyglot'});await waitFor('!!window.ST3GGOpenRouterAuth');
+ await evaluate("activatePolyglot()");await waitFor("document.querySelector('#polyglot-panel').classList.contains('active')");
  await evaluate(`window.open=()=>window.fakePopup={closed:false,close(){this.closed=true},location:{replace(url){window.authURL=url}}};document.querySelector('#aiagent-openrouter-auth button').click()`);await waitFor('!!window.authURL');
  if(await evaluate(`new URL(authURL).searchParams.has('callback_url')`))throw Error('File flow used callback');
  await evaluate(`window.fetch=async()=>({ok:true,json:async()=>({key:'sk-or-manual-fixture'})});document.querySelector('#aiagent-openrouter-auth input').value='manual-code';document.querySelector('#aiagent-openrouter-auth input+button').click()`);await waitFor(`ST3GGImageAgent.settings().apiKey==='sk-or-manual-fixture'`);

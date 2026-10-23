@@ -170,3 +170,20 @@ Gold is now applied in the initial HTML. Removed the Silver/Gold comparison
 control, silver palette and theme-switching script. The tab remains visible.
 `.polyglot-test/gold-final-check.cjs` passed: gold on first load, no switch,
 visible tab, synchronized layer review on desktop/mobile and a validated build.
+
+
+## Upper-left corner Easter egg, 23 October 2026
+
+Nested polyglots now starts hidden. Its transparent 16px upper-left hit area
+uses the existing three-click, 800ms gap-reset logic, shared with the bottom-right
+unlock-all trigger. Unlock reveals and opens the gold tab; unlock-all also reveals
+it. Deactivate mode hides the tab without discarding its run. The previous hash
+entry point no longer auto-opens the hidden tab. Unlock state resets on reload,
+as with the other Easter eggs.
+
+`.polyglot-test/polyglot-easteregg-check.cjs` passed in isolated Chrome with real
+mouse input: fresh/old-hash startup remains locked, single/double clicks and timed
+resets do not unlock, a triple click activates gold, deactivation/reactivation
+preserves populated layers and selection, unlock-all reveals all modes, and the
+same interaction works from a local file at mobile width. The maintained OAuth
+regression now explicitly unlocks its workspace fixture before testing.

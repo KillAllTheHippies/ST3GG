@@ -65,7 +65,12 @@ both saved copies in this browser; to revoke the key itself, use
 [OpenRouter key settings](https://openrouter.ai/keys). Pasting a key remains
 available. See [OpenRouter's OAuth guide](https://openrouter.ai/docs/guides/overview/auth/oauth).
 
-Open `index.html#polyglot` for the unified run workspace. The interface uses a
+Open `index.html` and triple-click the upper-left corner of the page to unlock
+Nested polyglots. The transparent hit area is 16 × 16 CSS pixels; each click must
+arrive within 800 ms of the previous one, matching the existing corner Easter egg.
+The bottom-right unlock-all corner also reveals it. Choose **Deactivate mode**
+to hide the tab again; the current run remains in the tab until reload. The old
+`#polyglot` fragment does not bypass the unlock. The interface uses a
 collapsible preset library, run configuration, a pan/zoom containment canvas and
 a selected-layer inspector. The 36 presets cover containers, branching structures,
 AI image sequences, all nine image encoders and imported-edit examples.
@@ -73,7 +78,7 @@ AI image sequences, all nine image encoders and imported-edit examples.
 The workspace keeps the app's dark surfaces and monospace type, with a gold,
 champagne and amethyst palette over aubergine panels.
 The shared banner and horizontal navigation stay visible above the workspace.
-The Nested polyglots tab remains visible with the gold mode styling. Independently scrolling sidebars and contextual
+The unlocked tab uses the gold mode styling. Independently scrolling sidebars and contextual
 editors sit around the layer canvas; **New run** starts a fresh nested-image run.
 Local font, icon and preset-preview sources are recorded in
 [`assets/polyglot/SOURCES.md`](assets/polyglot/SOURCES.md).
