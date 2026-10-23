@@ -623,7 +623,7 @@
         for(const source of graph.list)for(const step of P.steps(source))if(step.instructions?.installed){const target=graph.list.find(n=>n.id===step.instructions.installed.layerId);if(target&&target!==source){const a=positions.get(source.id),b=positions.get(target.id),path=document.createElementNS(ns,'path');path.setAttribute('d',`M${a.x+60},${a.y+181} Q${(a.x+b.x)/2},${Math.max(a.y,b.y)+270} ${b.x+60},${b.y+181}`);path.setAttribute('class','nw-instruction-edge');svg.append(path);}}
         const zooms=row(parent,'nw-zoom');button(zooms,'−',()=>{autoFit=false;zoom=Math.max(.05,zoom-.1);render();});badge(zooms,Math.round(zoom*100)+'%');button(zooms,'+',()=>{autoFit=false;zoom+=.1;render();});button(zooms,'Fit',()=>{autoFit=true;canvasScroll={left:0,top:0};render();});
         viewport.addEventListener('scroll',()=>{canvasScroll={left:viewport.scrollLeft,top:viewport.scrollTop};});viewport.scrollLeft=canvasScroll.left;viewport.scrollTop=canvasScroll.top;
-        viewport.onpointerdown=e=>{if(e.target.closest('button'))return;panning={x:e.clientX,y:e.clientY,left:viewport.scrollLeft,top:viewport.scrollTop};viewport.setPointerCapture(e.pointerId);};
+        viewport.onpointerdown=e=>{if(e.target.closest('button,[role="button"]'))return;panning={x:e.clientX,y:e.clientY,left:viewport.scrollLeft,top:viewport.scrollTop};viewport.setPointerCapture(e.pointerId);};
         viewport.onpointermove=e=>{if(panning){viewport.scrollLeft=panning.left+panning.x-e.clientX;viewport.scrollTop=panning.top+panning.y-e.clientY;}};viewport.onpointerup=()=>{panning=null;};viewport.onpointercancel=()=>{panning=null;};
     }
     function drawPrompt(parent,node) {

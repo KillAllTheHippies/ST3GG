@@ -11,6 +11,7 @@
             if (!view.root.isConnected) { controls.delete(view); continue; }
             view.connect.disabled = !!pending;
             view.disconnect.hidden = !ST3GGImageAgent.settings().apiKey && !pending;
+            view.disconnect.style.display = view.disconnect.hidden ? 'none' : '';
             view.status.textContent = message || (ST3GGImageAgent.settings().apiKey ? 'OpenRouter key loaded.' : 'Connect to use your OpenRouter credits.');
             view.manual.hidden = !pending?.manual;
             view.submit.disabled = !!pending?.exchanging;
@@ -97,6 +98,8 @@
         const connectButton = document.createElement('button'), disconnect = document.createElement('button');
         connectButton.type = disconnect.type = 'button';
         connectButton.className = disconnect.className = buttonClass;
+        connectButton.classList.remove('quiet', 'btn-secondary');
+        connectButton.classList.add(connectButton.classList.contains('nw-button') ? 'primary' : 'btn-primary');
         connectButton.textContent = 'Connect OpenRouter'; disconnect.textContent = 'Disconnect';
         connectButton.addEventListener('click', connect);
         disconnect.addEventListener('click', () => {
@@ -109,7 +112,7 @@
         status.style.cssText = 'font-size:11px;line-height:1.5;margin:4px 0';
         const manual = document.createElement('div'), code = document.createElement('input'), submit = document.createElement('button');
         code.className = 'input'; code.placeholder = 'Paste authorization code'; code.setAttribute('aria-label', 'OpenRouter authorization code'); code.autocomplete = 'off';
-        submit.type = 'button'; submit.className = buttonClass; submit.textContent = 'Complete connection';
+        submit.type = 'button'; submit.className = connectButton.className; submit.textContent = 'Complete connection';
         submit.addEventListener('click', () => { const value = code.value; code.value = ''; void exchange(value); });
         manual.append(code, submit);
         root.append(row, status, manual);

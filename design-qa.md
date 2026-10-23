@@ -107,3 +107,25 @@ run's source. The header connection action uses the same destination.
 390 pixels: the key field was expanded, visible and focused, layer IDs and labels
 were retained, unrelated errors had no settings shortcut, and Dismiss still
 worked. No API requests or live keys were used.
+
+
+## Annotated interaction fixes, 23 October 2026
+
+Connect OpenRouter and Complete connection use the existing primary button style;
+Disconnect stays secondary and is hidden when there is no key. The shared footer
+reserves the maximum hatching-frame footprint. Canvas panning ignores role-button
+cards so real pointer clicks reach the same selection path as inspector navigation.
+The settings, inspector and editor no longer contain overscroll: wheel gestures
+continue to the page at panel boundaries using browser-native scroll chaining.
+No wheel handlers or forwarding logic were added.
+
+Parallel checks passed in isolated Chrome: `.polyglot-test/auth-emphasis-check.cjs`
+verified computed button colors, hidden Disconnect controls and the mocked OAuth
+regression; `.polyglot-test/footer-stability-check.cjs` checked all nine frames on
+six tabs at desktop/mobile widths and observed a natural animation cycle without
+layout or scroll movement; `.polyglot-test/layer-selection-check.cjs` exercised
+real mouse clicks, pager equivalence, keyboard selection, template draft retention
+and blank-canvas dragging. `.polyglot-test/scroll-boundaries-check.cjs` reproduced
+the old containment trap and verified native scrolling within panels plus page
+handoff at both boundaries of settings, inspector, editor and canvas. Scroll
+verification uses multi-tick wheel gestures, matching continued scrolling.
