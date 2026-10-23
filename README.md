@@ -70,11 +70,10 @@ collapsible preset library, run configuration, a pan/zoom containment canvas and
 a selected-layer inspector. The 36 presets cover containers, branching structures,
 AI image sequences, all nine image encoders and imported-edit examples.
 
-The workspace keeps the app's dark surfaces and monospace type, with selectable
-**Silver** (glacial blue and violet) and **Gold** (champagne and amethyst) palettes.
-Silver opens by default; the theme switch changes colors without resetting a run.
+The workspace keeps the app's dark surfaces and monospace type, with a gold,
+champagne and amethyst palette over aubergine panels.
 The shared banner and horizontal navigation stay visible above the workspace.
-The Nested polyglots tab remains visible while these mode styles are previewed. Independently scrolling sidebars and contextual
+The Nested polyglots tab remains visible with the gold mode styling. Independently scrolling sidebars and contextual
 editors sit around the layer canvas; **New run** starts a fresh nested-image run.
 Local font, icon and preset-preview sources are recorded in
 [`assets/polyglot/SOURCES.md`](assets/polyglot/SOURCES.md).

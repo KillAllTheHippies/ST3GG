@@ -1,12 +1,6 @@
 /* Unified run configuration, containment canvas and layer inspector. */
 (function () {
     'use strict';
-    document.body.dataset.polyglotTheme='silver';
-    const themeButtons=document.querySelectorAll('.polyglot-theme-switch button');
-    for(const choice of themeButtons)choice.addEventListener('click',()=>{
-        document.body.dataset.polyglotTheme=choice.dataset.polyglotTheme;
-        for(const option of themeButtons)option.setAttribute('aria-pressed',String(option===choice));
-    });
     const C = PolyCore, P = PolyPayloads, textEncoder = new TextEncoder(), textDecoder = new TextDecoder();
     let api, root, selected, busy = false, error = '', progress = '', view = 'plan', reviewed = false, generated = false, workspaceStage = 'setup';
     let presetOpen = false, presetQuery = '', presetGroup = 'All', activePreset = 'chain3', previewPreset = 'chain3', zoom = 1, help = null, modelList = [], runTouched = false;

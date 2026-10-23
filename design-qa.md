@@ -162,3 +162,11 @@ the tab stays visible, layer selection and image URLs remain intact, an uncommit
 field edit and its exact DOM element survive switching, and there is no horizontal
 page overflow. Desktop and mobile screenshots for both themes were visually
 inspected under `.polyglot-test/metal-themes/`.
+
+
+## Gold selected, 23 October 2026
+
+Gold is now applied in the initial HTML. Removed the Silver/Gold comparison
+control, silver palette and theme-switching script. The tab remains visible.
+`.polyglot-test/gold-final-check.cjs` passed: gold on first load, no switch,
+visible tab, synchronized layer review on desktop/mobile and a validated build.
