@@ -143,3 +143,22 @@ button continues to name and build the complete outer file.
 input: canvas and previous/next navigation synchronized review and inspector,
 summary navigation stayed synchronized at desktop/mobile widths, and building
 from a selected child still validated the complete outer file.
+
+
+## Silver and gold mode previews, 23 October 2026
+
+Nested polyglots has two visible mode treatments inspired by the SPECTER and
+Nested Stegg screens. Silver combines platinum with blue-black panels, glacial
+blue labels and violet accents. Gold combines champagne with aubergine panels
+and amethyst labels. The mode title, active tab, primary controls, selections,
+fields, gallery and review surfaces share the chosen palette. The main ST3GG
+banner and the other application tabs retain their original colors. No unlock
+mechanism or hidden navigation was introduced.
+
+The Silver/Gold switch defaults to Silver and updates scoped color variables
+without rerendering the workspace. `.polyglot-test/metal-themes-check.cjs` passed
+in isolated Chrome at 1617, 1000 and 390 pixels: both themes remain selectable,
+the tab stays visible, layer selection and image URLs remain intact, an uncommitted
+field edit and its exact DOM element survive switching, and there is no horizontal
+page overflow. Desktop and mobile screenshots for both themes were visually
+inspected under `.polyglot-test/metal-themes/`.
