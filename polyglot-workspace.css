@@ -1,6 +1,7 @@
 /* Nested workspace layout using the main ST3GG application palette and typography. */
 body.polyglot-open{overflow-y:auto}
 /* Reuse the application's banner, container and horizontal tab navigation. */
+.polyglot-open>.container{max-width:none;width:100%}
 .polyglot-open>.container>.tabs{flex-wrap:wrap}
 #polyglot-panel{padding:0;border:0;margin:0;background:var(--bg-dark);border-radius:0}
 #poly-flow .nw-root{--nw-font:'JetBrains Mono','Fira Code','Courier New',monospace;--nw-bg:var(--bg-dark);--nw-panel:var(--bg-card);--nw-input:var(--bg-hover);--nw-border:var(--border);--nw-text:#d6dee7;--nw-muted:#9ba8b4;--nw-accent:var(--primary);height:calc(100dvh - 245px);min-height:620px;width:100%;display:flex;flex-direction:column;overflow:hidden;background:var(--nw-bg);color:var(--nw-text);font:15px/1.45 var(--nw-font);isolation:isolate}
