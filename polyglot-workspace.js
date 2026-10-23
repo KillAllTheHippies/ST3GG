@@ -76,6 +76,10 @@
         selected = node.id; activeStep = null; activeFile = null; workspaceStage='layers';
         if (['file', 'payload', 'instructions', 'carrier'].includes(view)) view = '';
         render();
+        if(view==='review'){
+            const item=document.querySelector('.nw-review-layer.selected'),panel=item?.closest('.nw-editor');
+            if(panel){if(item.offsetTop<panel.scrollTop)panel.scrollTop=item.offsetTop;else if(item.offsetTop+item.offsetHeight>panel.scrollTop+panel.clientHeight)panel.scrollTop=item.offsetTop+item.offsetHeight-panel.clientHeight;}
+        }
         const viewport = $('nw-canvas'), card = document.querySelector(`[data-layer-id="${node.id}"]`);
         if (viewport && card) {
             const x = parseFloat(card.style.left) * zoom, y = parseFloat(card.style.top) * zoom;
@@ -929,9 +933,10 @@
         button(downloads,'Download selected layer',()=>build(true,current()));button(downloads,'Download selected ZIP',()=>build(false,current(),true));
     }
     function drawReview(parent) {
-        parent.append(el('h3',`Review ${root.name}`));
+        const selectedNode=current();parent.append(el('h3',`Review ${selectedNode.name}`));
         for(const node of nodes()){
-            const item=el('div',null,'nw-review-layer'),head=row(item);button(head,`${layerNumber(node)}. ${node.name}`,()=>select(node));
+            const item=el('div',null,'nw-review-layer'+(node===selectedNode?' selected':'')),head=row(item),choose=button(head,`${layerNumber(node)}. ${node.name}`,()=>select(node));
+            item.dataset.reviewLayer=node.id;if(node===selectedNode)choose.setAttribute('aria-current','step');
             badge(head,node.image?'Image ready':'Needs image',node.image?'good':'');
             const files=node.entries.filter(e=>!e.child&&e.kind!=='folder').length,children=node.entries.filter(e=>e.child).length,payloads=P.steps(node).filter(s=>s.enabled!==false).length;
             note(item,`${files} archive ${files===1?'file':'files'}, ${children} nested ${children===1?'image':'images'}, ${payloads} image ${payloads===1?'payload':'payloads'}`);parent.append(item);

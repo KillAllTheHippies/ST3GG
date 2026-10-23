@@ -129,3 +129,17 @@ and blank-canvas dragging. `.polyglot-test/scroll-boundaries-check.cjs` reproduc
 the old containment trap and verified native scrolling within panels plus page
 handoff at both boundaries of settings, inspector, editor and canvas. Scroll
 verification uses multi-tick wheel gestures, matching continued scrolling.
+
+
+## Review follows selected layer, 23 October 2026
+
+The review title now names the selected layer; the corresponding summary has the
+same green selection accent and an aria-current marker. Canvas, inspector pager
+and summary selection share the same update path, keeping the active summary in
+view within the review panel. Other summaries remain available and the build
+button continues to name and build the complete outer file.
+
+`.polyglot-test/review-selection-check.cjs` passed with actual Chrome pointer
+input: canvas and previous/next navigation synchronized review and inspector,
+summary navigation stayed synchronized at desktop/mobile widths, and building
+from a selected child still validated the complete outer file.

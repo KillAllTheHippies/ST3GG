@@ -157,6 +157,7 @@ body.polyglot-open{overflow-y:auto}
 .nw-gallery-dialog button:focus-visible{outline:2px solid var(--secondary);outline-offset:3px}
 
 /* Application accents also apply to gallery, review and generated-image views. */
+.nw-review-layer.selected{border-color:var(--primary);box-shadow:inset 3px 0 var(--primary)}
 .nw-error{flex-wrap:wrap}.nw-error>span{flex:1 1 260px}.nw-error-actions{flex:0 1 auto}
 #polyglot-panel{border:1px solid var(--border);border-radius:8px;overflow:clip;background:var(--bg-card)}
 #poly-flow .nw-root{font-family:var(--nw-font);font-size:14px}
