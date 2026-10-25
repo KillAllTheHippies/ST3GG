@@ -2,6 +2,7 @@
 (function (global) {
     'use strict';
     const utf8 = new TextEncoder();
+    const empty = new Uint8Array();
     // ZIP32 field widths are format constraints, not a workspace resource policy.
     const limits = { bytes: Infinity, entries: 65534 };
     const tick = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -40,6 +41,24 @@
         let at = 0;
         for (const p of parts) { bytes.set(p, at); at += p.length; }
         return bytes;
+    }
+    function comment(bytes, label) {
+        bytes = bytes ?? empty;
+        if (!(bytes instanceof Uint8Array)) throw new Error(`${label} must be bytes.`);
+        if (bytes.length > 65535) throw new Error(`${label} exceeds the ZIP format's 65,535-byte comment field. Shorten the comment; workspace edits are retained.`);
+        return bytes;
+    }
+    function withoutCommentExtra(extra) {
+        const parts = [], view = new DataView(extra.buffer, extra.byteOffset, extra.byteLength);
+        for (let at = 0; at < extra.length;) {
+            if (at + 4 > extra.length) throw new Error('Invalid ZIP extra fields; cannot update the entry comment safely.');
+            const tag = view.getUint16(at, true), end = at + 4 + view.getUint16(at + 2, true);
+            if (end > extra.length) throw new Error('Invalid ZIP extra fields; cannot update the entry comment safely.');
+            // A changed UTF-8 comment supersedes an imported Unicode Comment extra.
+            if (tag !== 0x6375) parts.push(extra.subarray(at, end));
+            at = end;
+        }
+        return concat(parts);
     }
     function format(bytes) {
         if (bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71) return 'png';
@@ -107,8 +126,9 @@
                 time: u16(pos + 12), date: u16(pos + 14), attrs: u32(pos + 38),
                 version: u16(pos + 6),
                 localExtra: bytes.slice(local + 30 + u16(local + 26), dataStart),
-                centralExtra: bytes.slice(pos + 46 + nl, pos + 46 + nl + xl) };
-            const entry = { name, raw, bytes: null, issue: '', kind: name.endsWith('/') ? 'folder' : 'file' };
+                centralExtra: bytes.slice(pos + 46 + nl, pos + 46 + nl + xl),
+                commentBytes: bytes.slice(pos + 46 + nl + xl, pos + 46 + nl + xl + cl) };
+            const entry = { name, raw, commentBytes: raw.commentBytes, bytes: null, issue: '', kind: name.endsWith('/') ? 'folder' : 'file' };
             {
                 try { entry.bytes = await unpack(raw, signal); }
                 catch (error) { check(signal); entry.issue = error.message; }
@@ -120,23 +140,31 @@
         if (pos !== end) throw new Error('ZIP directory size does not match its entries.');
         ranges.sort((a, b) => a[0] - b[0]);
         if (ranges.some((r, i) => i && r[0] < ranges[i - 1][1])) throw new Error('Overlapping ZIP entries are unsupported.');
-        return { image: bytes.slice(0, prefixEnd), entries };
+        return { image: bytes.slice(0, prefixEnd), entries, commentBytes: bytes.slice(end + 22) };
     }
-    async function writeZip(entries, prefix = new Uint8Array(), signal) {
+    async function writeZip(entries, prefix = new Uint8Array(), signal, commentBytes = empty) {
         if (entries.length > limits.entries) throw new Error('This archive requires ZIP64 directory counts; the current writer supports ZIP32. The workspace is retained.');
+        const archiveComment = comment(commentBytes, 'Archive comment');
         const locals = [prefix], directory = [];
         let offset = prefix.length;
         for (const entry of entries) {
             check(signal);
             const name = utf8.encode(path(entry.name));
-            const raw = entry.bytes != null ? { packed: entry.bytes, size: entry.bytes.length, crc: crc(entry.bytes), method: 0, flags: 0x800 } : entry.raw;
+            const raw = entry.bytes != null ? { ...entry.raw, packed: entry.bytes, size: entry.bytes.length, crc: crc(entry.bytes), method: 0, flags: 0x800 } : entry.raw;
             if (!raw) throw new Error(`Missing contents: ${entry.name}`);
+            const entryComment = comment(entry.commentBytes ?? entry.raw?.commentBytes, `Comment for ${entry.name}`);
+            const sameComment = !!entry.raw && equal(entryComment, entry.raw.commentBytes || empty);
+            const legacyComment = sameComment && !(entry.raw.flags & 0x800) && entry.commentEncoding !== 'utf8';
+            if (legacyComment && name.some(byte => byte > 127) && entryComment.some(byte => byte > 127))
+                throw new Error(`${entry.name}: re-save its legacy ZIP comment as UTF-8 before using a non-ASCII filename. Original comment bytes cannot share the filename's UTF-8 flag.`);
+            const commentChanged = !sameComment || (entry.commentEncoding === 'utf8' && !(entry.raw?.flags & 0x800));
             // Keep descriptor flags and extras for opaque encrypted entries. Traditional
             // encryption uses this flag to choose its password-check byte.
-            const flags = raw.flags | 0x800;
-            const localExtra = raw.localExtra || new Uint8Array(), centralExtra = raw.centralExtra || new Uint8Array();
+            const flags = (raw.flags & ~0x800) | (legacyComment && !name.some(byte => byte > 127) ? 0 : 0x800);
+            let localExtra = raw.localExtra || empty, centralExtra = raw.centralExtra || empty;
+            if (commentChanged) { localExtra = withoutCommentExtra(localExtra); centralExtra = withoutCommentExtra(centralExtra); }
             const local = new Uint8Array(30 + name.length + localExtra.length), lv = new DataView(local.buffer);
-            const central = new Uint8Array(46 + name.length + centralExtra.length), cv = new DataView(central.buffer);
+            const central = new Uint8Array(46 + name.length + centralExtra.length + entryComment.length), cv = new DataView(central.buffer);
             lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, raw.version || 20, true);
             cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, raw.version || 20, true);
             for (const [v, shift] of [[lv, 0], [cv, 2]]) {
@@ -148,6 +176,7 @@
             local.set(name, 30); central.set(name, 46);
             lv.setUint16(28, localExtra.length, true); local.set(localExtra, 30 + name.length);
             cv.setUint16(30, centralExtra.length, true); central.set(centralExtra, 46 + name.length);
+            cv.setUint16(32, entryComment.length, true); central.set(entryComment, 46 + name.length + centralExtra.length);
             cv.setUint32(38, raw.attrs || (entry.name.endsWith('/') ? 16 : 0), true);
             cv.setUint32(42, offset, true);
             const descriptor = new Uint8Array(flags & 8 ? 16 : 0);
@@ -161,15 +190,16 @@
             if (offset > 0xffffffff) throw new Error('This output requires ZIP64 offsets; the current writer supports ZIP32. The workspace is retained.');
             await tick();
         }
-        const cd = concat(directory), end = new Uint8Array(22), ev = new DataView(end.buffer);
+        const cd = concat(directory), end = new Uint8Array(22 + archiveComment.length), ev = new DataView(end.buffer);
         ev.setUint32(0, 0x06054b50, true);
         ev.setUint16(8, entries.length, true); ev.setUint16(10, entries.length, true);
         ev.setUint32(12, cd.length, true); ev.setUint32(16, offset, true);
+        ev.setUint16(20, archiveComment.length, true); end.set(archiveComment, 22);
         return concat([...locals, cd, end]);
     }
     let serial = 0;
     function layer(name = 'outer.png', image = null) {
-        return { id: ++serial, name, image, entries: [], parent: null, original: null, dirty: true,
+        return { id: ++serial, name, image, entries: [], commentBytes: new Uint8Array(), parent: null, original: null, dirty: true,
             imageDirty: false, settings: { method: 'none', payload: '', options: {} }, validation: 'Not built' };
     }
     function dirty(node) { for (let n = node; n; n = n.parent) { n.dirty = true; n.validation = 'Requires rebuild'; } }
@@ -189,7 +219,7 @@
             const zip = await readZip(item.bytes, signal);
             if (!zip.image.length) throw new Error(`${node.name}: missing image prefix.`);
             await validateImage(zip.image);
-            node.image = zip.image; node.original = item.bytes; node.entries = zip.entries; node.dirty = false;
+            node.image = zip.image; node.original = item.bytes; node.entries = zip.entries; node.commentBytes = zip.commentBytes; node.dirty = false;
             node.validation = 'Imported image and ZIP directory readable; image payload unverified.';
             for (const entry of node.entries) {
                 if (entry.kind === 'folder' || !entry.bytes || !format(entry.bytes)) continue;
@@ -231,14 +261,16 @@
                 if (!extension || !(extension === 'jpg' ? /\.jpe?g$/i : /\.png$/i).test(node.name))
                     throw new Error(`Output filename must end in .${extension || 'png or jpg'}.`);
                 const entries = node.entries.map(e => ({ ...e, bytes: e.child ? results.get(e.child) : e.bytes }));
-                const output = !node.dirty && node.original ? node.original : await writeZip(entries, image, signal);
+                const output = !node.dirty && node.original ? node.original : await writeZip(entries, image, signal, node.commentBytes);
                 await adapter.validateImage(output);
                 const read = await readZip(output, signal);
                 if (!equal(read.image, image) || read.entries.length !== entries.length) throw new Error('Image prefix or entry count changed unexpectedly.');
+                if (!equal(read.commentBytes, node.commentBytes || empty)) throw new Error('Archive comment changed unexpectedly.');
                 let opaque = 0;
                 for (let i = 0; i < entries.length; i++) {
                     const want = entries[i], got = read.entries[i];
                     if (want.name !== got.name) throw new Error(`Entry path mismatch: ${want.name}`);
+                    if (!equal(want.commentBytes ?? want.raw?.commentBytes ?? empty, got.commentBytes)) throw new Error(`Entry comment changed: ${want.name}`);
                     if (want.bytes != null) {
                         if (!got.bytes || !equal(want.bytes, got.bytes)) throw new Error(`Extracted contents differ: ${want.name}`);
                     } else {
@@ -256,6 +288,7 @@
             node.original = output; node.image = image; node.imageDirty = false; node.dirty = false; node.validation = status;
             for (let i = 0; i < node.entries.length; i++) {
                 node.entries[i].raw = archiveEntries[i].raw;
+                node.entries[i].commentBytes = archiveEntries[i].commentBytes;
                 if (node.entries[i].child) node.entries[i].bytes = results.get(node.entries[i].child);
             }
         }

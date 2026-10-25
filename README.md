@@ -133,6 +133,24 @@ section or another compatible encoded payload. Instruction text records method,
 settings and decoding order. Linked sections preserve surrounding file contents.
 Instruction files are archive contents and are never executed by the application.
 
+**Archive comment · ZIP** in the payload-technique menu edits the ZIP comment
+inside the selected image (also available under **Add technique** when image
+payloads are configured, and through the shortcut under **Archive files**). Each file,
+folder and nested-image entry has a direct **Add comment** / **Comment** action
+as well as **Add ZIP comment** in its entry menu. The inline editor saves as you
+type and lets you switch between the archive and its entries. The `?` beside the
+controls explains ZIP metadata versus image payloads and ordinary archive files.
+Imported comment bytes remain unchanged until edited; new text uses UTF-8. Builds
+verify comments as well as entry contents, and separate ZIP downloads retain them.
+Comment bytes are included in the size breakdown. A live counter shows bytes used
+and remaining against ZIP's 65,535-byte comment field. Archive comments have no encoding flag, so their
+non-ASCII display can differ between ZIP readers.
+
+For direct review, `index.html?preview=polyglot#polyglot` opens this workspace;
+the ordinary application entry retains its existing mode activation behavior.
+
+Run the focused ZIP-comment regression checks with `node test_polyglot_comments.cjs`.
+
 Imports discover readable nested PNG/JPEG + ZIP files. Archive-only edits retain
 unchanged carrier bytes and ordinary file contents; child changes rebuild outward.
 Opaque archive entries are preserved with partial validation. ZIP32 constraints,

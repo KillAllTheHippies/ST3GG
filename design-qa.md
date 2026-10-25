@@ -58,6 +58,12 @@ Two user-requested review agents inspected the changed paths. Their findings wer
 
 The follow-up variable walkthrough and sidebar Usage examples entry passed the focused browser fixture, including live replacement text and applying an example to the selected image. `.polyglot-test/saved-key-check.cjs` passed isolated checks for session-to-local migration, local restoration, shared edits, explicit removal and storage failures. No real key was inspected. Recovery remains limited to browser storage for the same origin; unavailable keys from closed session-only tabs or other origins cannot be recovered by this change.
 
+## ZIP comments
+
+The focused `.polyglot-test/comments-ui-check.cjs` passed in an activated, visible workspace: archive, file and child-entry comments, nested archive comments, preservation across selection, inline help, direct entry actions, visible byte capacity, and a three-layer local-carrier build with downloaded comment byte checks. Screenshot: `.polyglot-test/reference-redesign/zip-comments.png`. No AI requests were made.
+
+`.polyglot-test/zip-comments-check.cjs` passed archive/entry UTF-8 and legacy-byte preservation, opaque entries, Unicode-extra cleanup, actual ZIP field boundaries, and nested rebuilding. Python's `zipfile` independently read the archive and entry comments and extracted the contents of `.polyglot-test/comments-fixture.zip`. The size map includes comment bytes, and both separate-ZIP export paths retain the archive comment. The comment help links to PKWARE's APPNOTE and explains archive versus entry scope, image-payload independence, and reader display support.
+
 ## Visual refinement, 22 October 2026
 
 Checkpoint before edits: `c35b329` (`Save nested polyglot workspace before visual polish`).

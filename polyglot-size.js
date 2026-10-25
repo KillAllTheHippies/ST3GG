@@ -35,18 +35,18 @@
             }
             const preserved = !node.dirty && !!node.original, image = node.image?.length || 0;
             const parts = [{ name: 'Image carrier', kind: 'carrier', bytes: image, node }];
-            let overhead = 22;
+            let overhead = 22 + (node.commentBytes?.length || 0);
             for (const e of node.entries) {
                 const child = e.child && records.get(e.child);
                 const bytes = preserved ? e.raw?.packed.length ?? child?.total ?? e.bytes?.length ?? 0 : child?.total ?? e.bytes?.length ?? e.raw?.packed.length ?? 0;
                 parts.push({ name: e.name, kind: child ? 'nested' : 'file', bytes, node: e.child || null, child, entry: e });
-                overhead += 76 + 2 * encoder.encode(e.name).length;
+                overhead += 76 + 2 * encoder.encode(e.name).length + (e.commentBytes?.length || 0);
                 if (!child && e.bytes == null && e.raw) overhead += (e.raw.localExtra?.length || 0) + (e.raw.centralExtra?.length || 0) + (e.raw.flags & 8 ? 16 : 0);
             }
             const content = parts.reduce((n, part) => n + part.bytes, 0);
             if (preserved) overhead = Math.max(0, node.original.length - content);
             const total = preserved ? node.original.length : content + overhead;
-            parts.push({ name: 'ZIP directory & headers', kind: 'overhead', bytes: overhead });
+            parts.push({ name: 'ZIP directory, headers & comments', kind: 'overhead', bytes: overhead });
             records.set(node, { node, image, total, overhead, parts, exact: preserved, pendingEncoding: node.imageDirty, dimensions: dimensions(node.image) });
         }
         const record = records.get(root);

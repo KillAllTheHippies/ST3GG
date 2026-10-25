@@ -239,7 +239,7 @@
             const bytes = await C.build(node, adapter, signal, status);
             if (zipOnly) {
                 const read = await C.readZip(bytes, signal);
-                download(await C.writeZip(read.entries, new Uint8Array(), signal), node.name.replace(/\.[^.]+$/, '') + '.zip');
+                download(await C.writeZip(read.entries, new Uint8Array(), signal, read.commentBytes), node.name.replace(/\.[^.]+$/, '') + '.zip');
             } else if (downloadOutput) download(bytes, node.name);
             status(`${node.name}\n${node.validation}`);
             if (node === root && demo) {

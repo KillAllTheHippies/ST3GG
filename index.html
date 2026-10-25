@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>🥚 STE.GG 🦕</title>
     <link rel="stylesheet" href="polyglot.css">
-    <link rel="stylesheet" href="polyglot-workspace.css?v=20261023-fluid1">
+    <link rel="stylesheet" href="polyglot-workspace.css?v=20261025-zipcomments5">
     <style>
         :root {
             --primary: #00ff41;
@@ -23352,16 +23352,21 @@ Binary data (${formatSize(data.length)})
             // Shared Agent key restoration and saving live in st3gg-image-agent.js.
         });
     </script>
-    <script src="polyglot-core.js"></script>
+    <script src="polyglot-core.js?v=20261025-zipcomments5"></script>
     <script src="polyglot-demos.js"></script>
     <script src="st3gg-image-agent.js?v=20261022-reference7"></script>
     <script src="st3gg-openrouter-auth.js?v=20261023-feedback1"></script>
-    <script src="polyglot-size.js"></script>
+    <script src="polyglot-size.js?v=20261025-zipcomments5"></script>
     <script src="polyglot-payloads.js"></script>
     <script src="polyglot-presets.js?v=20261022-reference7"></script>
     <script src="polyglot-help.js"></script>
     <script src="polyglot-image-library.js"></script>
-    <script src="polyglot-workspace.js?v=20261023-easteregg1"></script>
-    <script src="polyglot.js"></script>
+    <script src="polyglot-workspace.js?v=20261025-zipcomments5"></script>
+    <script src="polyglot.js?v=20261025-zipcomments5"></script>
+    <script>
+        if (new URLSearchParams(location.search).get('preview') === 'polyglot') {
+            document.addEventListener('DOMContentLoaded', () => activatePolyglot({ announce: false }));
+        }
+    </script>
 </body>
 </html>

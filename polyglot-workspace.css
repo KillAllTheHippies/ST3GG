@@ -223,6 +223,9 @@ body[data-polyglot-theme] .nw-help-panel a{color:var(--poly-cool)}
 @media(max-width:1000px){.polyglot-mode-heading{padding:18px 16px}.polyglot-mode-heading h1{font-size:20px}}
 @media(prefers-reduced-motion:reduce){.tabs [data-tab="polyglot"]{transition:none}}
 
+.nw-comment-text{min-height:150px!important}.nw-archive-comment{margin:-5px 0 8px}.nw-entry-comment{font-size:10px!important;min-height:24px!important;padding:2px 5px!important}.nw-comment-count.bad{color:var(--danger,#ffb3aa)}
+.nw-root .nw-button.nw-comment-action{border-color:var(--primary);color:var(--primary);font-weight:600}.nw-comment-count{font-variant-numeric:tabular-nums;font-weight:600}
+.nw-comment-help{margin:0 0 10px}.nw-comment-help>summary{display:inline-block;cursor:pointer;list-style:none;border-bottom:1px dotted currentColor;color:var(--poly-muted);font-size:12px;min-width:19px;text-align:center}.nw-comment-help>summary::-webkit-details-marker{display:none}.nw-comment-help>div{padding:8px 12px;margin-top:7px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card)}.nw-comment-help h4{margin:0 0 6px}.nw-comment-help a{font-size:11px;color:var(--secondary)}
 .polyglot-deactivate{display:block;margin:10px auto 0;padding:4px 9px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--poly-muted);font-family:inherit;font-size:11px;line-height:1.4;cursor:pointer}
 .polyglot-deactivate:hover{color:var(--primary);border-color:var(--primary)}
 .polyglot-deactivate:focus-visible{outline:2px solid var(--secondary);outline-offset:3px}

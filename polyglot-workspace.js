@@ -4,7 +4,7 @@
     const C = PolyCore, P = PolyPayloads, textEncoder = new TextEncoder(), textDecoder = new TextDecoder();
     let api, root, selected, busy = false, error = '', progress = '', view = 'plan', reviewed = false, generated = false, workspaceStage = 'setup';
     let presetOpen = false, presetQuery = '', presetGroup = 'All', activePreset = 'chain3', previewPreset = 'chain3', zoom = 1, help = null, modelList = [], runTouched = false;
-    let activeFile = null, activeStep = null, templateId = 'layer-notes', templateTargets = new Set(), lastOutput = null, knownRoot = null;
+    let activeFile = null, activeStep = null, activeComment = null, templateId = 'layer-notes', templateTargets = new Set(), lastOutput = null, knownRoot = null;
     let objectURLs = [], panning = null, canvasScroll = { left: 0, top: 0 }, rootBaseline = 0;
     let autoFit=true, imageDialogLayer=null, planningModels=[];
     const expanded = new Set(), fileDrafts = new WeakMap(), newFileDrafts = new Map(), templateDrafts = new Map(), instructionErrors = new Map();
@@ -35,8 +35,9 @@
     function field(parent, label, value, fn, opts = {}) {
         const wrap = el('label', null, 'nw-field'); wrap.append(el('span', label));
         const input = el(opts.area ? 'textarea' : opts.choices ? 'select' : 'input');
-        if (opts.choices) for (const choice of opts.choices) {
-            const pair = Array.isArray(choice) ? choice : [choice, choice], o = el('option', pair[1]); o.value = pair[0]; input.append(o);
+        if (opts.choices) {
+            const appendChoices=(host,choices)=>{for(const choice of choices){if(choice&&typeof choice==='object'&&!Array.isArray(choice)){const group=el('optgroup');group.label=choice.label;appendChoices(group,choice.choices);host.append(group);}else{const pair=Array.isArray(choice)?choice:[choice,choice],option=el('option',pair[1]);option.value=pair[0];host.append(option);}}};
+            appendChoices(input,opts.choices);
         } else if (!opts.area) input.type = opts.type || 'text';
         input.value = value ?? ''; input.disabled = busy || opts.disabled; input.spellcheck = !!opts.area;
         if (opts.key) input.dataset.focus = opts.key;
@@ -485,7 +486,7 @@
             const bytes = await C.build(target,adapter,signal,message => { progress = message; render(); });
             C.check(signal);
             for (const n of nodes()) for (const s of P.steps(n)) if (s.enabled !== false && n.validation.includes('payloads decoded')) s.status = 'Verified';
-            if (zipOnly) { const zip = await C.readZip(bytes,signal); api.download(await C.writeZip(zip.entries,new Uint8Array(),signal),target.name.replace(/\.[^.]+$/,'.zip')); }
+            if (zipOnly) { const zip = await C.readZip(bytes,signal); api.download(await C.writeZip(zip.entries,new Uint8Array(),signal,zip.commentBytes),target.name.replace(/\.[^.]+$/,'.zip')); }
             else if (download) api.download(bytes,target.name);
             lastOutput = target === root ? bytes : lastOutput;expanded.add('result-layers');expanded.add('result-sizes');view = 'results'; workspaceStage='export'; generated = nodes().every(n=>n.image); reviewed = true;
         });
@@ -709,7 +710,8 @@
         if(node.image&&level!=='Easy'&&!compactImage)button(imageParent,'Resize to run dimensions',async()=>{if(node.original&&!confirm('Resize this image? Unknown image payloads may be lost. Archive entries are retained.'))return;await api.busy(async signal=>{const bytes=await normalizeImage(node.image,settingsFor(node));C.check(signal);putImage(node,bytes);});},'quiet');
         const techniqueHeader=row(parent,'nw-section-heading');techniqueHeader.id=`nw-payloads-${node.id}`;techniqueHeader.append(el('h3','Payload techniques'));
         const list=P.steps(node), rule=P.rules(list);
-        if(!list.length)field(parent,'','none',value=>{if(value!=='none')addPayload(node,value);},{choices:[['none','None'],...Object.entries(PolyWorkspace.methods).filter(([key])=>key!=='none').map(([key,definition])=>[key,definition.title])]});
+        if(!list.length){const selector=field(parent,'',node.commentBytes?.length||view==='comments'&&!activeComment?'ZIPCOMMENT':'none',value=>{if(value==='ZIPCOMMENT')editComment(node);else if(value!=='none')addPayload(node,value);},{choices:[['none','None'],...payloadGroups()]});selector.setAttribute('aria-label','Payload technique');}
+        commentHelp(parent);
         if(list.length)badge(techniqueHeader,rule.ok?(rule.ordered?'Ordered · compatible':'Compatible'):'Conflict',rule.ok?'good':'bad');
         if(rule.ordered)note(parent,'Encoding order: pixel steps, then PNG metadata. Step numbering sets the documented decoding order.');
         for(const [i,step]of list.entries()){
@@ -722,12 +724,16 @@
         }
         if(!rule.ok)for(const c of rule.conflicts)note(parent,`${c.a.method} + ${c.b.method}: ${c.reason}`,'bad');
         if(list.length)disclosure(parent,'Add technique',`add-technique-${node.id}`,body=>{
-            for(const [method,definition]of Object.entries(PolyWorkspace.methods)){
-                if(method==='none')continue;
+            for(const group of payloadGroups()){
+                body.append(el('h4',group.label));
+                for(const [method]of group.choices){
+                if(method==='ZIPCOMMENT'){button(body,node.commentBytes?.length?'Edit archive comment · ZIP':'Archive comment · ZIP',()=>editComment(node),'nw-comment-action',archiveCommentTip);continue;}
+                const definition=PolyWorkspace.methods[method];
                 const candidate=candidateFor(node,method),check=P.rules([...list,candidate]),r=row(body);
                 const label=definition.title+(candidate.options.channels?' · '+candidate.options.channels:'');
                 const b=button(r,label,()=>addPayload(node,method));helpButton(r,method);
                 if(!check.ok){b.disabled=true;b.title=check.conflicts[0].reason;const reason=el('details',null,'nw-conflict-reason');reason.append(el('summary','Conflict'),el('p',check.conflicts[0].reason,'nw-note'));r.append(reason);}
+                }
             }
         });
         if(view==='instructions'){
@@ -738,12 +744,15 @@
             }
         }
         const archiveHeading=el('h3','Archive files (inside this layer)');archiveHeading.id=`nw-archive-${node.id}`;parent.append(archiveHeading);
+        const archiveCommentButton=button(parent,node.commentBytes?.length?'Edit archive comment':'Add archive comment',()=>editComment(node),'nw-archive-comment nw-comment-action',archiveCommentTip);archiveCommentButton.setAttribute('aria-description',archiveCommentTip);
         const files=el('div',null,'nw-archive-list');parent.append(files);
         for(const entry of node.entries){const r=row(files,'nw-file-row');const b=button(r,'',()=>entry.child?select(entry.child):entry.kind==='folder'?viewFolder(node,entry):editFile(node,entry),'nw-file-name');
             if(entry.child?.image)image(b,entry.child.image,'nw-file-thumbnail');else b.append(icon(entry.child?'archive':entry.kind==='folder'?'folder':'file-text'));b.append(el('span',entry.name));
             if(entry.child)badge(r,'Child layer');else if(entry.template)badge(r,entry.template.override?'Override':'Template linked');
+            button(r,entry.commentBytes?.length?'Comment':'Add comment',()=>editComment(node,entry),'nw-entry-comment nw-comment-action',(entry.commentBytes?.length?'Edit':'Add')+' ZIP comment for '+entry.name);
             const menu=el('details',null,'nw-file-menu');const summary=el('summary');summary.append(icon('dots'));summary.setAttribute('aria-label','Actions for '+entry.name);menu.append(summary);r.append(menu);const items=el('div');menu.append(items);
             button(items,'Download',()=>entry.child?build(true,entry.child):entry.bytes?api.download(entry.bytes,entry.name):Promise.reject(new Error('Extraction is unavailable for this preserved entry. Download the containing ZIP.')));
+            const commentAction=button(items,entry.commentBytes?.length?'Edit ZIP comment':'Add ZIP comment',()=>editComment(node,entry),'nw-comment-action');commentAction.prepend(icon('file-text'));
             button(items,'Rename / move',()=>{const next=prompt('Relative path',entry.name);if(next===null)return;C.collision(node.entries,next,entry);entry.name=next;if(entry.child)entry.child.name=next;dirty(node);render();});
             if(!entry.child&&entry.kind!=='folder')button(items,'Replace file…',async()=>{const[f]=await pick();if(f){entry.bytes=await api.bytesOf(f);entry.raw=null;entry.issue='';fileDrafts.delete(entry);if(entry.template)entry.template.override=true;dirty(node);render();}});
             if(entry.template)button(items,'Edit source template',()=>{templateId=entry.template.id;templateTargets=new Set([node.id]);view='templates';render();});
@@ -842,10 +851,49 @@
         const actions=row(parent);if(config.source==='ai'||nodes().some(n=>n.imageSource==='ai'))button(actions,'Plan sequence with vision model',()=>reviewRun(true));
         const missing=nodes().filter(n=>!n.image);if(missing.length)button(actions,'Edit next unfinished layer',()=>select(missing[0]),'quiet');
     }
+    const archiveCommentTip='ZIP defines one archive comment in its end-of-central-directory record: it describes the entire ZIP inside this image. Each file has a separate comment in its central-directory entry, describing only that item. Each comment allows up to 65,535 bytes. A nested image has its own archive comment as well as its entry comment in the parent ZIP.';
+    function payloadGroups() {
+        return [
+            {label:'ZIP archive metadata',choices:[['ZIPCOMMENT','Archive comment · ZIP']]},
+            {label:'Image metadata',choices:[['PNGCHUNK',PolyWorkspace.methods.PNGCHUNK.title]]},
+            {label:'Image encoding · PNG',choices:['LSB','SPECTER','DCT','PVD','SPREAD','PALETTE','CHROMA'].map(key=>[key,PolyWorkspace.methods[key].title])},
+            {label:'Image encoding · JPEG',choices:[['F5',PolyWorkspace.methods.F5.title]]}
+        ];
+    }
+    function editComment(node,entry=null) { selected=node.id;activeComment=entry;view='comments';render(); }
+    function commentHelp(parent) {
+        const help=el('details',null,'nw-comment-help'),summary=el('summary','?');summary.setAttribute('aria-label','ZIP comments compared with image steganography');summary.title='ZIP comments store text in archive metadata. Image techniques embed a separate payload in the carrier. Click for details.';help.append(summary);
+        const body=el('div');help.append(body);body.append(el('h4','ZIP comments and image payloads'));
+        note(body,'Archive comment: one note for the ZIP inside this image. File comment: a separate note attached to a particular ZIP entry, including a nested image. The nested image can also have its own archive comment.');
+        note(body,'ZIP comments are archive metadata, readable by ZIP tools that display comments. LSB, PVD and related techniques encode image data; PNG-chunk encoding uses image metadata. Each has its own decoding method. ZIP comments use the ZIP reader.');
+        note(body,'Comments add bytes to the ZIP without using image-payload capacity. Use them for short descriptions, attribution or decoding notes. Use archive files for standalone documents and attachments.');
+        const source=el('a','ZIP format reference');source.href='https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT';source.target='_blank';source.rel='noopener';body.append(source);parent.append(help);
+    }
+    function commentText(target,isEntry) {
+        const bytes=target.commentBytes||new Uint8Array(),legacy=isEntry&&target.raw&&!(target.raw.flags&0x800)&&target.commentEncoding!=='utf8';
+        if(!legacy){try{return {text:new TextDecoder('utf-8',{fatal:true}).decode(bytes),encoding:'UTF-8'};}catch{/* Preview legacy bytes without changing them. */}}
+        const cp437='\u00c7\u00fc\u00e9\u00e2\u00e4\u00e0\u00e5\u00e7\u00ea\u00eb\u00e8\u00ef\u00ee\u00ec\u00c4\u00c5\u00c9\u00e6\u00c6\u00f4\u00f6\u00f2\u00fb\u00f9\u00ff\u00d6\u00dc\u00a2\u00a3\u00a5\u20a7\u0192\u00e1\u00ed\u00f3\u00fa\u00f1\u00d1\u00aa\u00ba\u00bf\u2310\u00ac\u00bd\u00bc\u00a1\u00ab\u00bb\u2591\u2592\u2593\u2502\u2524\u2561\u2562\u2556\u2555\u2563\u2551\u2557\u255d\u255c\u255b\u2510\u2514\u2534\u252c\u251c\u2500\u253c\u255e\u255f\u255a\u2554\u2569\u2566\u2560\u2550\u256c\u2567\u2568\u2564\u2565\u2559\u2558\u2552\u2553\u256b\u256a\u2518\u250c\u2588\u2584\u258c\u2590\u2580\u03b1\u00df\u0393\u03c0\u03a3\u03c3\u00b5\u03c4\u03a6\u0398\u03a9\u03b4\u221e\u03c6\u03b5\u2229\u2261\u00b1\u2265\u2264\u2320\u2321\u00f7\u2248\u00b0\u2219\u00b7\u221a\u207f\u00b2\u25a0\u00a0';
+        return {text:Array.from(bytes,b=>b<128?String.fromCharCode(b):cp437[b-128]).join(''),encoding:'CP437 preview'};
+    }
+    function drawComments(parent,node) {
+        if(activeComment&&!node.entries.includes(activeComment))activeComment=null;
+        const entry=activeComment,target=entry||node,decoded=commentText(target,!!entry);
+        parent.append(el('h3',entry?'ZIP entry comment':'ZIP archive comment'));
+        commentHelp(parent);
+        field(parent,'Comment applies to',entry?String(node.entries.indexOf(entry)):'archive',value=>{activeComment=value==='archive'?null:node.entries[Number(value)];render();},{choices:[['archive','Archive inside '+node.name],...node.entries.map((e,i)=>[String(i),(e.child?'Nested image entry: ':e.kind==='folder'?'Folder entry: ':'File entry: ')+e.name])]});
+        note(parent,entry?`Stored with ${entry.name} in ${node.name}’s ZIP directory.`:`Stored in the ZIP archive inside ${node.name}. Each nested image has its own archive comment.`);
+        const summary=el('p',null,'nw-note nw-comment-count');
+        function updateCount(encoding=decoded.encoding){const length=target.commentBytes?.length||0,remaining=65535-length;summary.textContent=`${length.toLocaleString()} / 65,535 bytes · ${remaining>=0?remaining.toLocaleString()+' remaining':(-remaining).toLocaleString()+' over the ZIP limit'} · ${encoding}`;summary.title='The ZIP standard allows 65,535 bytes per archive or entry comment. UTF-8 characters use 1–4 bytes each.';summary.classList.toggle('bad',remaining<0);}
+        const input=field(parent,'Comment',decoded.text,value=>{target.commentBytes=textEncoder.encode(value);target.commentEncoding='utf8';dirty(node);updateCount('UTF-8');refreshNextAction();},{area:true,key:'zip-comment-'+node.id+'-'+(entry?node.entries.indexOf(entry):'archive'),live:true,placeholder:entry?'Notes about this file or nested image.':'Release notes, attribution or decoding notes for this archive.'});input.classList.add('nw-comment-text');parent.append(summary);updateCount();
+        summary.id='nw-comment-capacity-'+uid();summary.setAttribute('role','status');input.setAttribute('aria-describedby',summary.id);note(parent,'The ZIP limit is measured in bytes. UTF-8 characters use 1–4 bytes each.');
+        note(parent,decoded.encoding==='UTF-8'?'Edits are saved in the workspace as you type. Build to write them into the ZIP.':'Original comment bytes are preserved until edited. Editing writes this text as UTF-8.');
+        const actions=row(parent);button(actions,'Done',()=>{view='';render();},'primary');button(actions,'Download comment',()=>api.download(target.commentBytes||new Uint8Array(),(entry?entry.name.split('/').pop():node.name)+'.comment.txt'));button(actions,'Clear comment',()=>{target.commentBytes=new Uint8Array();target.commentEncoding='utf8';dirty(node);render();},'quiet');
+    }
     function drawFile(parent) {
         const draft=activeFile;if(!draft)return;
         const node=nodes().find(n=>n.id===draft.nodeId);if(!node)return;
         parent.append(el('h3',`${draft.entry?.name||'New text file'} / ${node.name}`));
+        if(draft.entry)button(parent,draft.entry.commentBytes?.length?'Edit ZIP comment':'Add ZIP comment',()=>editComment(node,draft.entry),'quiet');
         if(draft.binary){if(C.format(draft.entry.bytes))image(parent,draft.entry.bytes,'nw-file-preview');note(parent,`${PolySize.format(draft.entry.bytes.length)} · exact file contents retained`);button(parent,'Download file',()=>api.download(draft.entry.bytes,draft.entry.name));return;}
         field(parent,'Archive path',draft.name,v=>{draft.name=v;},{key:'file-name'});
         const textarea=field(parent,'Contents',draft.text,v=>{draft.text=v;},{area:true,key:'file-content',live:true});textarea.classList.add('nw-file-text');
@@ -992,7 +1040,7 @@
     function drawEditor(parent,node) {
         if(!view)return;
         const panel=el('section',null,'nw-editor');parent.append(panel);const top=row(panel,'nw-editor-title');top.append(el('span',['review','results','size'].includes(view)?'Complete output':view==='plan'?'Image sequence':`Selected layer: ${node.name}`));const close=button(top,'×',()=>{view='';render();},'quiet','Close editor');close.setAttribute('aria-label','Close editor');
-        if(view==='ready-examples')drawReadyExamples(panel);else if(view==='examples'){panel.append(el('h3','Image prompt examples'));note(panel,'Choose an example for '+node.name+', then edit its description before generating. The preset library also contains complete editable runs.');drawPromptExamples(panel,node);}else if(view==='variables')drawVariables(panel,node);else if(view==='previews')drawPreviews(panel);else if(view==='review')drawReview(panel);else if(view==='plan')drawPlan(panel);else if(view==='payload')drawPayload(panel,node);else if(view==='file')drawFile(panel);else if(view==='templates')drawTemplates(panel,node);else if(view==='instructions')drawInstructions(panel,node);else if(view==='size')drawSize(panel);else if(view==='results')drawResults(panel);else if(view==='folder'){note(panel,activeFile.entry.name);for(const entry of node.entries.filter(e=>e.name.startsWith(activeFile.entry.name)&&e!==activeFile.entry))button(panel,entry.name,()=>entry.child?select(entry.child):editFile(node,entry));}
+        if(view==='comments')drawComments(panel,node);else if(view==='ready-examples')drawReadyExamples(panel);else if(view==='examples'){panel.append(el('h3','Image prompt examples'));note(panel,'Choose an example for '+node.name+', then edit its description before generating. The preset library also contains complete editable runs.');drawPromptExamples(panel,node);}else if(view==='variables')drawVariables(panel,node);else if(view==='previews')drawPreviews(panel);else if(view==='review')drawReview(panel);else if(view==='plan')drawPlan(panel);else if(view==='payload')drawPayload(panel,node);else if(view==='file')drawFile(panel);else if(view==='templates')drawTemplates(panel,node);else if(view==='instructions')drawInstructions(panel,node);else if(view==='size')drawSize(panel);else if(view==='results')drawResults(panel);else if(view==='folder'){note(panel,activeFile.entry.name);for(const entry of node.entries.filter(e=>e.name.startsWith(activeFile.entry.name)&&e!==activeFile.entry))button(panel,entry.name,()=>entry.child?select(entry.child):editFile(node,entry));}
     }
     function drawImageDialog(frame) {
         const node=nodes().find(n=>n.id===imageDialogLayer);if(!node){imageDialogLayer=null;return;}
