@@ -651,8 +651,8 @@
             pointer-events: auto !important;
         }
 
-        /* Unlock-all easter egg trigger (bottom-right corner) */
-        .unlock-all-trigger, .polyglot-trigger {
+        /* SPECTER easter egg trigger (bottom-right corner) */
+        .specter-trigger, .polyglot-trigger {
             position: fixed;
             bottom: 0;
             right: 0;
@@ -1463,6 +1463,7 @@
             <button class="tab tab-godmode" data-tab="godmode" id="godmode-tab-btn" style="display: none;">🧬 SPECTER</button>
             <button class="tab tab-textlab" data-tab="textlab" id="textlab-tab-btn">Text Lab</button>
             <button class="tab tab-aiagent" data-tab="aiagent" id="aiagent-tab-btn">Agent</button>
+            <button class="tab" data-tab="configuration" id="configuration-tab-btn">Configuration</button>
         </nav>
 
         <!-- Encode Panel -->
@@ -3214,16 +3215,10 @@
             </div>
         </section>
 
-        <!-- AI Agent Panel -->
-        <section class="panel" id="aiagent-panel">
-            <div class="grid">
-                <div class="card">
-                    <h2 class="card-title" style="color: #8b9dc3;">🤖 AI Steg Analysis Agent</h2>
-                    <p class="text-muted" style="font-size: 11px; margin-bottom: 16px;">
-                        An autonomous AI agent that can both reveal hidden data and conceal secrets using all known steganography techniques.
-                        Powered by OpenRouter - intelligently tests every decoding method for the uploaded file type.
-                    </p>
-
+        <!-- Configuration Panel -->
+        <section class="panel" id="configuration-panel">
+            <div class="card">
+                <h2 class="card-title">Configuration</h2>
                     <div class="form-group">
                         <label for="aiagent-api-key">OpenRouter API Key</label>
                         <div id="aiagent-openrouter-auth"></div>
@@ -3252,6 +3247,19 @@
                             Any model ID from <a href="https://openrouter.ai/models" target="_blank" style="color: var(--secondary);">openrouter.ai/models</a> — including free models
                         </div>
                     </div>
+
+            </div>
+        </section>
+
+        <!-- AI Agent Panel -->
+        <section class="panel" id="aiagent-panel">
+            <div class="grid">
+                <div class="card">
+                    <h2 class="card-title" style="color: #8b9dc3;">🤖 AI Steg Analysis Agent</h2>
+                    <p class="text-muted" style="font-size: 11px; margin-bottom: 16px;">
+                        An autonomous AI agent that can both reveal hidden data and conceal secrets using all known steganography techniques.
+                        Powered by OpenRouter - intelligently tests every decoding method for the uploaded file type.
+                    </p>
 
                     <div class="form-group">
                         <label>Agent Mode</label>
@@ -3404,9 +3412,9 @@
 
     <!-- Nested polyglots Easter Egg Trigger (upper-left corner, triple-click) -->
     <div class="polyglot-trigger" id="polyglot-trigger"></div>
+    <div class="specter-trigger" id="specter-trigger"></div>
 
     <!-- Unlock All Easter Eggs Trigger (bottom-right corner, triple-click) -->
-    <div class="unlock-all-trigger" id="unlock-all-trigger"></div>
 
     <!-- Matryoshka Mode Indicator (shown when active) -->
     <div class="matryoshka-indicator hidden" id="matryoshka-indicator" onclick="deactivateMatryoshka()">
@@ -11304,7 +11312,7 @@
                 }
             };
         }
-        const handleUnlockAllClick = easterEggTripleClick(activateAllEasterEggs);
+        const handleSpecterClick = easterEggTripleClick(() => activateGodmode());
         const handlePolyglotClick = easterEggTripleClick(() => {
             if (state.polyglotMode) deactivatePolyglot();
             else activatePolyglot();
@@ -11323,40 +11331,6 @@
             if (tab.classList.contains('active')) document.querySelector('.tab[data-tab="encode"]').click();
             tab.style.display = 'none';
             notify('Nested polyglots mode deactivated', 'info');
-        }
-
-        function activateAllEasterEggs() {
-            activatePolyglot({ navigate: false, announce: false });
-            // Activate Text Lab
-            if (!textLabUnlocked) {
-                const textLabTab = document.getElementById('textlab-tab-btn');
-                if (textLabTab) textLabTab.style.display = 'inline-block';
-                textLabUnlocked = true;
-            }
-
-            // Activate Matryoshka
-            if (!state.matryoshkaMode) {
-                state.matryoshkaMode = true;
-                const matTab = document.getElementById('matryoshka-tab-btn');
-                if (matTab) matTab.style.display = '';
-                document.getElementById('matryoshka-indicator').classList.remove('hidden');
-                document.getElementById('matryoshka-decode-btn').classList.remove('hidden');
-            }
-
-            // Activate SPECTER
-            if (!state.godmodeActive) {
-                state.godmodeActive = true;
-                const godTab = document.getElementById('godmode-tab-btn');
-                if (godTab) godTab.style.display = '';
-                document.getElementById('godmode-indicator').classList.remove('hidden');
-            }
-
-            // Flash effect on the trigger corner
-            const trigger = document.getElementById('unlock-all-trigger');
-            trigger.classList.add('unlock-all-flash');
-            setTimeout(() => trigger.classList.remove('unlock-all-flash'), 600);
-
-            notify('🔓 ALL EASTER EGGS UNLOCKED — Text Lab + Nested Stegg + SPECTER + Nested polyglots', 'success');
         }
 
         function updateMatryoshkaDepth(value) {
@@ -23273,8 +23247,8 @@ Binary data (${formatSize(data.length)})
             document.getElementById('matryoshka-trigger').addEventListener('click', toggleMatryoshka);
 
             // Unlock-all easter egg trigger (triple-click bottom-right corner)
-            document.getElementById('unlock-all-trigger').addEventListener('click', handleUnlockAllClick);
             document.getElementById('polyglot-trigger').addEventListener('click', handlePolyglotClick);
+            document.getElementById('specter-trigger').addEventListener('click', handleSpecterClick);
 
             // Bitplane slider for channel visualization
             document.getElementById('bitplane-slider')?.addEventListener('input', (e) => {
