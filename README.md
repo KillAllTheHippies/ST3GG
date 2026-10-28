@@ -47,6 +47,14 @@
 
 ## Nested polyglots browser workspace
 
+The Agent tab's model field fetches OpenRouter's current text-output model catalog
+when focused. Type a model name, provider or ID to filter it; keyboard selection
+and manual IDs are supported. Models used in successful Agent requests appear
+under **Frequently used**, beneath the collapsible **Recommended** submenu.
+The remaining catalog follows, loading more entries as you scroll. All groups
+filter while typing; usage counts and the selected model are saved in this browser.
+The refresh control retries catalog discovery without changing the current selection.
+
 ### Connect OpenRouter
 
 Choose **Connect OpenRouter** in Agent settings or the nested workspace's **Model

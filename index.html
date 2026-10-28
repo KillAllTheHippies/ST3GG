@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>🥚 STE.GG 🦕</title>
     <link rel="stylesheet" href="polyglot.css">
+    <link rel="stylesheet" href="st3gg-agent-models.css?v=20261028-models2">
     <link rel="stylesheet" href="polyglot-workspace.css?v=20261025-zipcomments5">
     <style>
         :root {
@@ -1468,8 +1469,7 @@
         <section class="panel" id="polyglot-panel">
             <header class="polyglot-mode-heading">
                 <h1><span aria-hidden="true">◈</span> Nested polyglots <span aria-hidden="true">◈</span></h1>
-                <p>Images within archives. Layers within layers.</p>
-                <button type="button" class="polyglot-deactivate" onclick="deactivatePolyglot()">Deactivate mode</button>
+                <p>Image is zip containing image that is zip containing image that is zip and so on...</p>
             </header>
             <div id="poly-flow"></div>
             <dialog id="poly-advanced" aria-labelledby="poly-advanced-title">
@@ -11305,7 +11305,10 @@
             };
         }
         const handleUnlockAllClick = easterEggTripleClick(activateAllEasterEggs);
-        const handlePolyglotClick = easterEggTripleClick(() => activatePolyglot());
+        const handlePolyglotClick = easterEggTripleClick(() => {
+            if (state.polyglotMode) deactivatePolyglot();
+            else activatePolyglot();
+        });
 
         function activatePolyglot({ navigate = true, announce = true } = {}) {
             state.polyglotMode = true;
@@ -20573,7 +20576,9 @@
             }
 
             const data = await response.json();
-            return data.choices[0].message.content;
+            const content = data.choices[0].message.content;
+            window.ST3GGAgentModels?.recordUse(model);
+            return content;
         }
 
         function getImageAsBase64(canvas) {
@@ -23355,6 +23360,7 @@ Binary data (${formatSize(data.length)})
     <script src="polyglot-core.js?v=20261025-zipcomments5"></script>
     <script src="polyglot-demos.js"></script>
     <script src="st3gg-image-agent.js?v=20261022-reference7"></script>
+    <script src="st3gg-agent-models.js?v=20261028-models2"></script>
     <script src="st3gg-openrouter-auth.js?v=20261023-feedback1"></script>
     <script src="polyglot-size.js?v=20261025-zipcomments5"></script>
     <script src="polyglot-payloads.js"></script>
@@ -23366,6 +23372,8 @@ Binary data (${formatSize(data.length)})
     <script>
         if (new URLSearchParams(location.search).get('preview') === 'polyglot') {
             document.addEventListener('DOMContentLoaded', () => activatePolyglot({ announce: false }));
+        } else if (new URLSearchParams(location.search).get('preview') === 'agent') {
+            document.addEventListener('DOMContentLoaded', () => document.querySelector('.tab[data-tab="aiagent"]').click());
         }
     </script>
 </body>
