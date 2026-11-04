@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>🥚 STE.GG 🦕</title>
     <link rel="stylesheet" href="polyglot.css">
+    <link rel="stylesheet" href="st3gg-workflow.css?v=20261104-3">
     <link rel="stylesheet" href="st3gg-agent-models.css?v=20261028-models2">
-    <link rel="stylesheet" href="polyglot-workspace.css?v=20261025-zipcomments5">
+    <link rel="stylesheet" href="polyglot-workspace.css?v=20261104-sequences1">
     <style>
         :root {
             --primary: #00ff41;
@@ -1458,10 +1459,10 @@
             <button class="tab active" data-tab="encode">Encode</button>
             <button class="tab" data-tab="decode">Decode</button>
             <button class="tab" data-tab="analyze">Analyze</button>
-            <button class="tab" data-tab="polyglot" id="polyglot-tab-btn" style="display: none;">Nested polyglots</button>
-            <button class="tab tab-matryoshka" data-tab="matryoshka" id="matryoshka-tab-btn" style="display: none;">🪆 Nested Stegg</button>
+            <button class="tab" data-tab="polyglot" id="polyglot-tab-btn" style="display: none;">Image + ZIP layers</button>
+            <button class="tab tab-matryoshka" data-tab="matryoshka" id="matryoshka-tab-btn" style="display: none;">Nested image payloads</button>
             <button class="tab tab-godmode" data-tab="godmode" id="godmode-tab-btn" style="display: none;">🧬 SPECTER</button>
-            <button class="tab tab-textlab" data-tab="textlab" id="textlab-tab-btn">Text Lab</button>
+            <button class="tab tab-textlab" data-tab="textlab" id="textlab-tab-btn" style="display: none;">Text Lab</button>
             <button class="tab tab-aiagent" data-tab="aiagent" id="aiagent-tab-btn">Agent</button>
             <button class="tab" data-tab="configuration" id="configuration-tab-btn">Configuration</button>
         </nav>
@@ -1569,7 +1570,7 @@
                         <div class="form-group">
                             <label class="form-label">Secret Message</label>
                             <textarea class="form-textarea" id="encode-text" placeholder="Enter your hidden message here..."></textarea>
-                            <div style="margin-top: 8px; display: flex; align-items: center; gap: 12px;">
+                            <div hidden style="margin-top: 8px; display: none; align-items: center; gap: 12px;">
                                 <label class="form-check" style="margin: 0;">
                                     <input type="checkbox" id="zerowidth-toggle" onchange="toggleZeroWidth()">
                                     <span style="font-size: 11px;">Zero-Width Unicode Mode</span>
@@ -2029,6 +2030,7 @@
                             <span id="capacity-percent">0%</span>
                         </div>
                     </div>
+                    <div id="audio-capacity" class="capacity-meter hidden"></div>
                 </div>
             </div>
 
@@ -2391,7 +2393,7 @@
             </div>
 
             <div class="btn-group" style="justify-content: center;">
-                <button class="btn btn-primary" onclick="doAnalyze()">ANALYZE</button>
+                <button class="btn btn-primary" id="analyze-run-btn" onclick="doAnalyze()">ANALYZE</button>
             </div>
 
             <!-- Audio Analysis Section (shown for audio) -->
@@ -2751,7 +2753,7 @@
         <!-- Matryoshka Panel (Hidden Tab) -->
         <section class="panel" id="matryoshka-panel">
             <div class="matryoshka-header">
-                <h1 class="matryoshka-main-title">🪆 NESTED STEGG 🪆</h1>
+                <h1 class="matryoshka-main-title">NESTED IMAGE PAYLOADS</h1>
                 <p class="matryoshka-main-subtitle">Multi-Layer Steganography</p>
             </div>
 
@@ -3232,7 +3234,7 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Model</label>
+                        <label>Analysis / Agent model</label>
                         <select id="aiagent-model" class="select" onchange="toggleCustomModel()">
                             <option value="anthropic/claude-opus-4.6" selected>Claude Opus 4.6 (Recommended)</option>
                             <option value="anthropic/claude-sonnet-4.6">Claude Sonnet 4.6</option>
@@ -3248,6 +3250,16 @@
                         </div>
                     </div>
 
+                <div class="form-group">
+                        <label for="aiagent-image-model" style="display:block; margin-top:10px;">Image generation model</label>
+                        <input type="text" id="aiagent-image-model" class="input" value="google/gemini-2.5-flash-image" placeholder="OpenRouter image model ID">
+                </div>
+                <div class="form-group">
+                    <label for="planning-model">Vision / planning model</label>
+                    <input type="text" class="input" id="planning-model" placeholder="Use the analysis model unless overridden">
+                    <p class="text-muted">Used for image sequence planning. A run may override this choice.</p>
+                </div>
+                <p class="workflow-settings-note">Connection and model choices are shared by Agent and image + ZIP layers. Files stay in this browser until you start an AI action.</p>
             </div>
         </section>
 
@@ -3301,8 +3313,8 @@
                             <button class="btn btn-sm" onclick="generateCarrierImage()" id="aiagent-generate-btn" style="background: #8b5cf6; color: #fff; white-space: nowrap; padding: 6px 12px;">🎨 Generate</button>
                         </div>
                         <div id="aiagent-generate-status" style="display: none; margin-top: 6px; font-size: 11px; color: #8b5cf6;"></div>
-                        <label for="aiagent-image-model" style="display:block; margin-top:10px;">Image model (shared with polyglot layers)</label>
-                        <input type="text" id="aiagent-image-model" class="input" value="google/gemini-2.5-flash-image" placeholder="OpenRouter image model ID">
+                        <button type="button" class="btn btn-secondary" onclick="document.querySelector('.tabs [data-tab=configuration]').click()">Model settings</button>
+                        <p class="workflow-model-summary"></p>
                         <button type="button" class="btn btn-secondary btn-sm" onclick="ST3GGImageAgent.cancel()">Cancel image generation</button>
                         <img id="aiagent-conceal-preview" class="image-preview hidden">
                         <div id="aiagent-conceal-info" class="image-info"></div>
@@ -6679,6 +6691,7 @@
 
             const preview = document.getElementById('encode-carrier-preview');
             preview.src = canvas.toDataURL('image/png');
+            canvas.toBlob(blob => { if(blob) ST3GGTransfers.publish('encode.carrier',ST3GGTransfers.artifact({blob,name:'generated-carrier.png',source:'Generated carrier'})); },'image/png');
             preview.classList.remove('hidden');
 
             document.getElementById('encode-carrier-info').textContent =
@@ -7876,6 +7889,7 @@
         }
 
         function activateTextLab() {
+            textLabUnlocked = true;
             const tabBtn = document.getElementById('textlab-tab-btn');
             if (tabBtn) {
                 tabBtn.style.display = 'inline-block';
@@ -7884,6 +7898,7 @@
                     tabBtn.click();
                 }, 50);
             }
+            document.dispatchEvent(new CustomEvent('st3gg-feature-change'));
             notify('🔤 Text Lab unlocked! Hide messages in plain text.', 'success');
         }
 
@@ -8271,6 +8286,7 @@
 
                 if (result) {
                     document.getElementById('textlab-output').value = result;
+                    ST3GGWorkflow.recordBytes('textlab.encoded', result, 'encoded-text.txt', 'Text Lab');
                     document.getElementById('textlab-stats').textContent = stats;
                     notify('Encoded successfully!', 'success');
                 } else {
@@ -8409,6 +8425,7 @@
 
                 if (result) {
                     document.getElementById('textlab-decode-output').value = result;
+                    ST3GGWorkflow.recordBytes('textlab.decoded', result, 'decoded-message.txt', 'Text Lab');
                     document.getElementById('textlab-decode-stats').textContent = `Decoded ${result.length} chars`;
                     notify('Decoded successfully!', 'success');
                 } else {
@@ -8944,6 +8961,7 @@
         }
 
         function updateCapacity() {
+            if (state.encodeMediaType === 'audio') { updateAudioCapacity(); return; }
             if (!state.carrierCanvas) {
                 document.getElementById('capacity-bytes').textContent = '-- bytes';
                 document.getElementById('capacity-fill').style.width = '0%';
@@ -9029,7 +9047,7 @@
 
         async function doEncode() {
             // Check if we're in audio mode
-            if (state.mediaType === 'audio') {
+            if (state.encodeMediaType === 'audio') {
                 return doAudioEncode();
             }
 
@@ -9139,6 +9157,9 @@
                     document.getElementById('quick-download-btn').classList.remove('hidden');
                     document.getElementById('download-extension').textContent = '.png';
 
+                    state.workflowResultKind = 'image';
+                    document.getElementById('encode-result-preview').classList.remove('hidden');
+                    await ST3GGWorkflow.recordEncoded();
                     notify('PNG Chunk encoding successful!', 'success');
                     return; // Exit early - PNG Chunk handles its own output
                 } else if (method === 'F5') {
@@ -9178,6 +9199,7 @@
                     // Store JPEG result instead of canvas
                     state.encodedResult = null; // Clear canvas result
                     state.encodedJpegResult = stegoJpeg;
+                    state.encodedPngChunkResult = null;
 
                     // Display result
                     const blob = new Blob([stegoJpeg], { type: 'image/jpeg' });
@@ -9190,6 +9212,9 @@
                     document.getElementById('quick-download-btn').classList.remove('hidden');
                     document.getElementById('download-extension').textContent = '.jpg';
 
+                    state.workflowResultKind = 'image';
+                    document.getElementById('encode-result-preview').classList.remove('hidden');
+                    await ST3GGWorkflow.recordEncoded();
                     notify('F5 encoding successful! Output: JPEG', 'success');
                     return; // Exit early - F5 handles its own output
                 } else if (method === 'TEXTOVERLAY') {
@@ -9212,6 +9237,7 @@
                 }
 
                 state.encodedResult = resultCanvas;
+                state.encodedPngChunkResult = null;
                 state.encodedJpegResult = null; // Clear F5 result when using other methods
 
                 document.getElementById('encode-result').classList.remove('hidden');
@@ -9221,45 +9247,18 @@
                 document.getElementById('quick-download-btn').classList.remove('hidden');
                 document.getElementById('download-extension').textContent = '.png';
 
+                state.workflowResultKind = 'image';
+                document.getElementById('encode-result-preview').classList.remove('hidden');
+                await ST3GGWorkflow.recordEncoded();
                 notify('Encoding successful! Output: PNG (lossless)', 'success');
             } catch (e) {
                 notify(e.message, 'error');
             }
         }
 
-        function downloadResult() {
-            const customName = document.getElementById('download-filename')?.value || 'stego_output';
-
-            // Handle F5 JPEG output
-            if (state.encodedJpegResult) {
-                const blob = new Blob([state.encodedJpegResult], { type: 'image/jpeg' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.download = `${customName}.jpg`;
-                link.href = url;
-                link.click();
-                URL.revokeObjectURL(url);
-                return;
-            }
-
-            // Handle PNG Chunk output
-            if (state.encodedPngChunkResult) {
-                const blob = new Blob([state.encodedPngChunkResult], { type: 'image/png' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.download = `${customName}.png`;
-                link.href = url;
-                link.click();
-                URL.revokeObjectURL(url);
-                return;
-            }
-
-            if (!state.encodedResult) return;
-
-            const link = document.createElement('a');
-            link.download = `${customName}.png`;
-            link.href = state.encodedResult.toDataURL('image/png');
-            link.click();
+        async function downloadResult() {
+            try { ST3GGTransfers.download(await ST3GGWorkflow.encodedArtifact()); }
+            catch (error) { notify(error.message, 'error'); }
         }
 
         async function doSmartScan() {
@@ -9562,6 +9561,7 @@
                     const { filename: extractedName, fileData } = extractFileFromData(deepest.rawData);
                     state.matryoshkaExtractedData = extractedName ? fileData : deepest.rawData;
                     state.matryoshkaExtractedFilename = deepest.filename || extractedName || 'extracted.bin';
+                    ST3GGWorkflow.recordBytes('nested.decoded', state.matryoshkaExtractedData, state.matryoshkaExtractedFilename, 'Nested image payloads');
 
                     // Display in matryoshka panel
                     const extractedDiv = document.getElementById('matryoshka-extracted');
@@ -9620,6 +9620,7 @@
 
             state.extractedData = name ? fileData : data;
             state.extractedFileName = name || 'extracted.txt';
+            ST3GGWorkflow.recordBytes('decode.output', state.extractedData, state.extractedFileName, 'Decode');
 
             const content = document.getElementById('decode-result-content');
             const quickContent = document.getElementById('quick-decode-content');
@@ -9739,6 +9740,7 @@
             output += `╚══════════════════════════════════════╝`;
 
             document.getElementById('analyze-result').textContent = output;
+            ST3GGWorkflow.recordBytes('analysis.report', output, 'analysis-report.txt', 'Analyze report');
 
             // Auto-show visual layers
             showChannelLayers();
@@ -11572,15 +11574,7 @@
                 // Encode from innermost to outermost
                 const result = await matryoshkaEncode(payload, carriers, channelName, bitsPerChannel, embedMode);
 
-                // Download result
-                result.canvas.toBlob(blob => {
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `matryoshka_encoded.png`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                }, 'image/png');
+                await ST3GGWorkflow.outputCanvas('nested.encoded', result.canvas, 'nested_payloads.png', 'Nested image payloads', 'matryoshka');
 
                 notify(`🪆 Encoded! ${depth} layers, ${modeLabel}, ${outerCanvas.width}x${outerCanvas.height}`, 'success');
 
@@ -12587,16 +12581,8 @@
                     });
                 }
 
-                // Download
                 const ghostSuffix = ghost ? '_ghost' : '';
-                resultCanvas.toBlob(blob => {
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `godmode_${embedMode}${ghostSuffix}_encoded.png`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                }, 'image/png');
+                await ST3GGWorkflow.outputCanvas('specter.encoded', resultCanvas, `specter_${embedMode}${ghostSuffix}.png`, 'SPECTER', 'godmode');
 
                 const modeInfo = embedMode === 'dct' ? 'DCT (compression-resistant)' : `LSB ${density}% density`;
                 const ghostInfo = ghost ? ' + 👻 Ghost Mode' : '';
@@ -12676,6 +12662,7 @@
                     state.godmodeDecodedFilename = 'decoded.txt';
                 }
 
+                ST3GGWorkflow.recordBytes('specter.decoded', state.godmodeDecodedData, state.godmodeDecodedFilename, 'SPECTER');
                 notify(`🧬 SPECTER decoded (${usedMode} mode)!`, 'success');
 
             } catch (err) {
@@ -20387,6 +20374,7 @@
                 notify('Carrier image generated', 'success');
             }
 
+            if (state.aiAgentConcealCanvas) await ST3GGWorkflow.outputCanvas('agent.carrier',state.aiAgentConcealCanvas,'agent-carrier.png','Agent carrier','aiagent');
             btn.disabled = false;
         }
 
@@ -20511,7 +20499,7 @@
                 previewContent = `<code style="font-size: 9px; color: #888;">${artifact.preview}</code>`;
             }
 
-            artifactsEl.innerHTML += `<div style="margin-bottom: 8px; padding: 8px; background: #1a1a2f; border-left: 3px solid #00d4ff;">
+            artifactsEl.insertAdjacentHTML('beforeend', `<div style="margin-bottom: 8px; padding: 8px; background: #1a1a2f; border-left: 3px solid #00d4ff;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <strong style="color: #00d4ff;">${artifact.format}</strong>
                     <span style="color: var(--text-dim); font-size: 10px;">${formatSize(artifact.size)}</span>
@@ -20519,7 +20507,8 @@
                 <div style="color: var(--text-dim); font-size: 10px; margin-top: 2px;">${artifact.method}</div>
                 ${previewContent}
                 <a href="${url}" download="${filename}" style="display: inline-block; margin-top: 4px; padding: 4px 8px; background: #00d4ff22; border: 1px solid #00d4ff; color: #00d4ff; font-size: 10px; text-decoration: none; border-radius: 3px;">⬇ Download ${filename}</a>
-            </div>`;
+            </div>`);
+            ST3GGWorkflow.attachArtifact(artifactsEl.lastElementChild, artifact);
 
             artifactsEl.scrollTop = artifactsEl.scrollHeight;
             aiAgentLog(`📦 Artifact extracted: ${artifact.format} (${formatSize(artifact.size)})`, 'success');
@@ -21064,6 +21053,9 @@ USE YOUR INTELLIGENCE AS AN LLM:
             state.mediaType = 'audio';
 
             if (panel === 'encode') {
+                state.encodeMediaType = 'audio';
+                document.getElementById('encode-capacity').classList.add('hidden');
+                document.getElementById('audio-capacity').classList.remove('hidden');
                 // Update card styling
                 const card = document.getElementById('encode-carrier-card');
                 card.style.borderColor = '#00d4ff55';
@@ -21155,6 +21147,9 @@ USE YOUR INTELLIGENCE AS AN LLM:
             state.mediaType = 'image';
 
             if (panel === 'encode') {
+                state.encodeMediaType = 'image';
+                document.getElementById('encode-capacity').classList.remove('hidden');
+                document.getElementById('audio-capacity').classList.add('hidden');
                 // Reset card styling
                 const card = document.getElementById('encode-carrier-card');
                 card.style.borderColor = '';
@@ -21235,12 +21230,12 @@ USE YOUR INTELLIGENCE AS AN LLM:
         }
 
         // Load audio file for encode panel
-        async function loadAudioCarrier(file) {
+        async function loadAudioCarrier(file, prepared) {
             try {
                 notify('Loading audio...', 'info');
                 const audioCtx = getAudioContext();
                 const arrayBuffer = await file.arrayBuffer();
-                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                const audioBuffer = prepared || await audioCtx.decodeAudioData(arrayBuffer);
 
                 state.audioBuffer = audioBuffer;
 
@@ -21264,12 +21259,12 @@ USE YOUR INTELLIGENCE AS AN LLM:
 
                 notify('🎵 Audio loaded successfully!', 'success');
             } catch (e) {
-                notify('Error loading audio: ' + e.message, 'error');
+                throw e;
             }
         }
 
         // Load audio file for decode panel
-        async function loadAudioForDecode(file) {
+        async function loadAudioForDecode(file, prepared) {
             try {
                 notify('Loading audio...', 'info');
                 const arrayBuffer = await file.arrayBuffer();
@@ -21290,7 +21285,7 @@ USE YOUR INTELLIGENCE AS AN LLM:
 
                 // Also load via Web Audio API for playback/visualization
                 const audioCtx = getAudioContext();
-                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                const audioBuffer = prepared || await audioCtx.decodeAudioData(arrayBuffer);
                 state.decodeAudioBuffer = audioBuffer;
 
                 // Display metadata
@@ -21335,7 +21330,7 @@ USE YOUR INTELLIGENCE AS AN LLM:
 
                 notify('🎵 Audio loaded for decode!', 'success');
             } catch (e) {
-                notify('Error loading audio: ' + e.message, 'error');
+                throw e;
             }
         }
 
@@ -21368,12 +21363,12 @@ USE YOUR INTELLIGENCE AS AN LLM:
         }
 
         // Load audio file for analyze panel
-        async function loadAudioForAnalyze(file) {
+        async function loadAudioForAnalyze(file, prepared) {
             try {
                 notify('Loading audio...', 'info');
                 const audioCtx = getAudioContext();
                 const arrayBuffer = await file.arrayBuffer();
-                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                const audioBuffer = prepared || await audioCtx.decodeAudioData(arrayBuffer);
 
                 state.analyzeAudioBuffer = audioBuffer;
 
@@ -21391,7 +21386,7 @@ USE YOUR INTELLIGENCE AS AN LLM:
 
                 notify('🎵 Audio loaded for analysis!', 'success');
             } catch (e) {
-                notify('Error loading audio: ' + e.message, 'error');
+                throw e;
             }
         }
 
@@ -21890,7 +21885,7 @@ USE YOUR INTELLIGENCE AS AN LLM:
 
         // Update audio capacity display
         function updateAudioCapacity() {
-            const capacityEl = document.getElementById('encode-capacity');
+            const capacityEl = document.getElementById('audio-capacity');
             if (!capacityEl) return;
 
             if (!state.audioBuffer) {
@@ -22225,11 +22220,15 @@ USE YOUR INTELLIGENCE AS AN LLM:
                         <p class="text-muted">Method: ${method.replace('AUDIO_', '')}</p>
                         <p class="text-muted">Duration: ${formatAudioTime(state.audioBuffer.duration)}</p>
                         <p class="text-muted">Sample Rate: ${state.audioBuffer.sampleRate}Hz</p>
-                        <button class="btn btn-primary mt-3" onclick="downloadAudioResult()">Download WAV</button>
+
                     </div>
                 `;
 
-                notify('🎵 Audio encoded! Click Download WAV to save.', 'success');
+                state.workflowResultKind = 'audio';
+                document.querySelector('#encode-result h2').textContent = 'Encoded audio';
+                document.getElementById('download-extension').textContent = '.wav';
+                await ST3GGWorkflow.recordEncoded();
+                notify('Audio encoded. Download or use it in another tool.', 'success');
 
             } catch (e) {
                 notify('Encode error: ' + e.message, 'error');
@@ -22514,6 +22513,10 @@ Binary data (${formatSize(data.length)})
                     }
                 }
 
+                state.extractedData = state.decodedData;
+                state.extractedFileName = state.decodedFilename || 'decoded.bin';
+                ST3GGWorkflow.recordBytes('decode.output',state.extractedData,state.extractedFileName,'Audio decode');
+
                 // Also show in quick result
                 const quickResult = document.getElementById('quick-decode-result');
                 const quickContent = document.getElementById('quick-decode-content');
@@ -22623,6 +22626,7 @@ Binary data (${formatSize(data.length)})
             drawAudioLSBHistogram(samples);
             drawAudioFrequencySpectrum(samples, sampleRate);
 
+            ST3GGWorkflow.recordBytes('analysis.report',output,'audio-analysis-report.txt','Audio analysis');
             notify('🎵 Audio analysis complete!', 'success');
         }
 
@@ -22842,6 +22846,7 @@ Binary data (${formatSize(data.length)})
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.addEventListener('click', () => {
                     if (tab.dataset.tab === 'polyglot' && !state.polyglotMode) return;
+                    if (tab.dataset.tab === 'textlab' && !textLabUnlocked) return;
                     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
                     tab.classList.add('active');
@@ -22854,73 +22859,13 @@ Binary data (${formatSize(data.length)})
             initTextLabEasterEgg();
 
             // Global paste handler for images
-            document.addEventListener('paste', e => {
-                const items = e.clipboardData?.items;
-                if (!items) return;
-
-                for (const item of items) {
-                    if (item.type.startsWith('image/')) {
-                        e.preventDefault();
-                        const file = item.getAsFile();
-                        if (!file) return;
-
-                        // Determine active panel and route accordingly
-                        const activePanel = document.querySelector('.panel.active');
-                        if (!activePanel) return;
-
-                        const panelId = activePanel.id;
-                        const img = new Image();
-                        img.onload = () => {
-                            const canvas = imageToCanvas(img);
-
-                            if (panelId === 'encode-panel') {
-                                state.carrierCanvas = canvas;
-                                document.getElementById('encode-carrier-preview').src = img.src;
-                                document.getElementById('encode-carrier-preview').classList.remove('hidden');
-                                document.getElementById('encode-carrier-info').textContent = `Pasted | ${img.width}x${img.height}`;
-                                updateCapacity();
-                                notify('Image pasted as carrier', 'success');
-                            } else if (panelId === 'decode-panel') {
-                                state.decodeCanvas = canvas;
-                                document.getElementById('decode-image-preview').src = img.src;
-                                document.getElementById('decode-image-preview').classList.remove('hidden');
-                                document.getElementById('decode-image-info').textContent = `Pasted | ${img.width}x${img.height}`;
-                                // Exhaustive header search
-                                const headerResult = findStegHeader(canvas);
-                                const detection = document.getElementById('decode-detection');
-                                if (headerResult) {
-                                    const { header, channelStr, detectedBits } = headerResult;
-                                    detection.innerHTML = `<div style="color: var(--primary); background: rgba(0,255,65,0.1); padding: 8px; border: 1px solid var(--primary); border-radius: 4px;">
-                                        ✓ STEG v${header.version} detected @ ${channelStr} ${detectedBits}-bit<br>
-                                        Payload: ${header.channels.map(c => ['R','G','B','A'][c]).join('')} ${header.bitsPerChannel}-bit<br>
-                                        Size: ${formatSize(header.originalLength)}
-                                    </div>`;
-                                } else {
-                                    detection.innerHTML = `<div style="color: var(--warning); background: rgba(255,255,0,0.1); padding: 8px; border: 1px solid var(--border); border-radius: 4px;">
-                                        ⚠ No STEG header found - use Smart Scan
-                                    </div>`;
-                                }
-                                notify('Image pasted for decoding', 'success');
-                            } else if (panelId === 'analyze-panel') {
-                                state.analyzeCanvas = canvas;
-                                document.getElementById('analyze-image-preview').src = img.src;
-                                document.getElementById('analyze-image-preview').classList.remove('hidden');
-                                document.getElementById('analyze-image-info').textContent = `Pasted | ${img.width}x${img.height}`;
-                                notify('Image pasted for analysis', 'success');
-                            } else if (panelId === 'matryoshka-panel') {
-                                // Use as outer carrier or decode input based on context
-                                state.matryoshkaOuterCarrier = canvas;
-                                document.getElementById('matryoshka-outer-preview').src = img.src;
-                                document.getElementById('matryoshka-outer-preview').classList.remove('hidden');
-                                document.getElementById('matryoshka-outer-info').textContent = `Pasted | ${img.width}x${img.height}`;
-                                updateMatryoshkaSizeInfo();
-                                notify('Image pasted as Nested Stegg carrier', 'success');
-                            }
-                        };
-                        img.src = URL.createObjectURL(file);
-                        break;
-                    }
-                }
+            document.addEventListener('paste', event => {
+                const panel = document.querySelector('.panel.active')?.id;
+                const input = {'encode-panel':'encode-carrier-input','decode-panel':'decode-image-input','analyze-panel':'analyze-image-input','matryoshka-panel':'matryoshka-outer-input','godmode-panel':'godmode-carrier-input','aiagent-panel':state.aiAgentMode==='encode'?'aiagent-conceal-input':'aiagent-reveal-input'}[panel];
+                if(!input)return;
+                const item=[...(event.clipboardData?.items||[])].find(item=>item.type.startsWith('image/'));
+                const file=item?.getAsFile();if(!file)return;
+                event.preventDefault();ST3GGInputPorts.loadInput(input,file).catch(error=>notify(error.message,'error'));
             });
 
             // Drop zones
@@ -22968,241 +22913,54 @@ Binary data (${formatSize(data.length)})
             });
 
             setupDropZone('encode-carrier-drop', 'encode-carrier-input', file => {
-                // Check if it's an audio file
-                const isAudio = file.type.startsWith('audio/') ||
-                    /\.(wav|mp3|ogg|flac|m4a|aac)$/i.test(file.name);
-
-                if (isAudio) {
-                    // Handle audio file
-                    switchToAudioMode('encode');
-                    loadAudioCarrier(file);
-                } else {
-                    // Handle image file
-                    switchToImageMode('encode');
-                    const img = new Image();
-                    const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
-                    img.onload = () => {
-                        state.carrierCanvas = imageToCanvas(img);
-                        state.carrierOriginalType = file.type;
-                        document.getElementById('encode-carrier-preview').src = img.src;
-                        document.getElementById('encode-carrier-preview').classList.remove('hidden');
-                        document.getElementById('encode-carrier-info').textContent =
-                            `${file.name} | ${img.width}x${img.height}`;
-                        updateCapacity();
-                        updateTextOverlayPreview();
-
-                        // Warn about GIF limitations
-                        if (isGif) {
-                            notify('GIF loaded: Animation will be lost. Output will be PNG.', 'warning');
-                        }
-                    };
-                    img.src = URL.createObjectURL(file);
-                }
+                ST3GGInputPorts.loadInput('encode-carrier-input', file).catch(error => notify(error.message, 'error'));
             });
 
             setupDropZone('encode-file-drop', 'encode-file-input', file => {
-                const reader = new FileReader();
-                reader.onload = e => {
-                    state.payloadFile = new Uint8Array(e.target.result);
-                    state.payloadFileName = file.name;
-                    document.getElementById('encode-file-info').textContent =
-                        `${file.name} (${formatSize(file.size)})`;
-                    updateCapacity();
-                };
-                reader.readAsArrayBuffer(file);
+                ST3GGInputPorts.loadInput('encode-file-input', file).catch(error => notify(error.message, 'error'));
             });
 
+            // Uploads and cross-tab handoffs share image and raw-byte handling.
             setupDropZone('decode-image-drop', 'decode-image-input', file => {
-                // Detect if it's an audio file
-                const isAudio = file.type.startsWith('audio/') ||
-                    /\.(wav|mp3|ogg|flac|m4a|aac)$/i.test(file.name);
-
-                if (isAudio) {
-                    switchToAudioMode('decode');
-                    loadAudioForDecode(file);
-                } else {
-                    switchToImageMode('decode');
-
-                    // For F5: Store raw JPEG data if it's a JPEG file
-                    const isJpeg = file.type === 'image/jpeg' ||
-                        /\.(jpg|jpeg)$/i.test(file.name);
-                    // For PNG Chunk: Store raw PNG data if it's a PNG file
-                    const isPng = file.type === 'image/png' ||
-                        /\.png$/i.test(file.name);
-
-                    if (isJpeg) {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                            state.decodeJpegData = new Uint8Array(reader.result);
-                        };
-                        reader.readAsArrayBuffer(file);
-                        state.decodePngData = null;
-                    } else if (isPng) {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                            state.decodePngData = new Uint8Array(reader.result);
-                        };
-                        reader.readAsArrayBuffer(file);
-                        state.decodeJpegData = null;
-                    } else {
-                        state.decodeJpegData = null;
-                        state.decodePngData = null;
-                    }
-
-                    const img = new Image();
-                    img.onload = async () => {
-                        // For PNG files with raw bytes available, use direct PNG parsing
-                        // to bypass canvas premultiplied alpha (which corrupts alpha-channel steg).
-                        // putImageData does NOT premultiply, so this preserves exact pixel values.
-                        if (state.decodePngData) {
-                            const rawCanvas = await pngBytesToCanvas(state.decodePngData);
-                            if (rawCanvas) {
-                                state.decodeCanvas = rawCanvas;
-                            } else {
-                                state.decodeCanvas = imageToCanvas(img); // fallback
-                            }
-                        } else {
-                            state.decodeCanvas = imageToCanvas(img);
-                        }
-                        document.getElementById('decode-image-preview').src = img.src;
-                        document.getElementById('decode-image-preview').classList.remove('hidden');
-                        let formatInfo = '';
-                        if (isJpeg) formatInfo = ' (JPEG - F5 ready)';
-                        else if (isPng) formatInfo = ' (PNG - Chunk ready)';
-                        document.getElementById('decode-image-info').textContent =
-                            `${file.name} | ${img.width}x${img.height}${formatInfo}`;
-
-                        // Exhaustive header search
-                        const headerResult = findStegHeader(state.decodeCanvas);
-
-                        const detection = document.getElementById('decode-detection');
-                        if (headerResult) {
-                            const { header, channelStr, detectedBits } = headerResult;
-                            detection.innerHTML = `<div style="color: var(--primary); background: rgba(0,255,65,0.1); padding: 8px; border: 1px solid var(--primary); border-radius: 4px;">
-                                ✓ STEG v${header.version} detected @ ${channelStr} ${detectedBits}-bit<br>
-                                Payload: ${header.channels.map(c => ['R','G','B','A'][c]).join('')} ${header.bitsPerChannel}-bit<br>
-                                Size: ${formatSize(header.originalLength)}
-                            </div>`;
-                        } else {
-                            detection.innerHTML = `<div style="color: var(--warning); background: rgba(255,255,0,0.1); padding: 8px; border: 1px solid var(--border); border-radius: 4px;">
-                                ⚠ No STEG header found - use Smart Scan${isJpeg ? ' or try F5 with password' : ''}
-                            </div>`;
-                        }
-                    };
-                    img.src = URL.createObjectURL(file);
-                }
+                ST3GGInputPorts.loadInput('decode-image-input', file).catch(error => notify(error.message, 'error'));
             });
-
             setupDropZone('analyze-image-drop', 'analyze-image-input', file => {
-                // Detect if it's an audio file
-                const isAudio = file.type.startsWith('audio/') ||
-                    /\.(wav|mp3|ogg|flac|m4a|aac)$/i.test(file.name);
-
-                if (isAudio) {
-                    switchToAudioMode('analyze');
-                    loadAudioForAnalyze(file);
-                } else {
-                    switchToImageMode('analyze');
-                    state.analyzeFile = file;
-                    state.currentFile = file; // For universal metadata analyzer
-                    const img = new Image();
-                    img.onload = () => {
-                        state.analyzeCanvas = imageToCanvas(img);
-                        document.getElementById('analyze-image-preview').src = img.src;
-                        document.getElementById('analyze-image-preview').classList.remove('hidden');
-                        document.getElementById('analyze-image-info').textContent =
-                            `${file.name} | ${img.width}x${img.height}`;
-                    };
-                    img.src = URL.createObjectURL(file);
-                }
+                ST3GGInputPorts.loadInput('analyze-image-input', file).catch(error => notify(error.message, 'error'));
             });
 
             // Matryoshka decode drop zone - uses its own canvas
             setupDropZone('matryoshka-decode-drop', 'matryoshka-decode-input', file => {
-                const img = new Image();
-                img.onload = () => {
-                    state.matryoshkaDecodeCanvas = imageToCanvas(img);
-                    document.getElementById('matryoshka-decode-preview').src = img.src;
-                    document.getElementById('matryoshka-decode-preview').classList.remove('hidden');
-                    notify('Image loaded for Nested Stegg decode', 'success');
-                };
-                img.src = URL.createObjectURL(file);
+                ST3GGInputPorts.loadInput('matryoshka-decode-input', file).catch(error => notify(error.message, 'error'));
             });
 
             // Matryoshka outer carrier drop zone
             setupDropZone('matryoshka-outer-drop', 'matryoshka-outer-input', file => {
-                const img = new Image();
-                img.onload = () => {
-                    state.matryoshkaOuterCarrier = imageToCanvas(img);
-                    document.getElementById('matryoshka-outer-preview').src = img.src;
-                    document.getElementById('matryoshka-outer-preview').classList.remove('hidden');
-                    document.getElementById('matryoshka-outer-info').textContent =
-                        `${file.name} | ${img.width}x${img.height}`;
-                    notify('Outer carrier loaded', 'success');
-                    updateMatryoshkaSizeInfo();
-                };
-                img.src = URL.createObjectURL(file);
+                ST3GGInputPorts.loadInput('matryoshka-outer-input', file).catch(error => notify(error.message, 'error'));
             });
 
             // Matryoshka payload file drop zone
             setupDropZone('matryoshka-file-drop', 'matryoshka-file-input', file => {
-                const reader = new FileReader();
-                reader.onload = e => {
-                    state.matryoshkaPayloadFile = new Uint8Array(e.target.result);
-                    state.matryoshkaPayloadFileName = file.name;
-                    document.getElementById('matryoshka-file-info').textContent =
-                        `${file.name} (${formatSize(file.size)})`;
-                    updateMatryoshkaSizeInfo();
-                };
-                reader.readAsArrayBuffer(file);
+                ST3GGInputPorts.loadInput('matryoshka-file-input', file).catch(error => notify(error.message, 'error'));
             });
 
             // SPECTER carrier drop zone
             setupDropZone('godmode-carrier-drop', 'godmode-carrier-input', file => {
-                const img = new Image();
-                img.onload = () => {
-                    state.godmodeCarrierCanvas = imageToCanvas(img);
-                    document.getElementById('godmode-carrier-preview').src = img.src;
-                    document.getElementById('godmode-carrier-preview').classList.remove('hidden');
-                    document.getElementById('godmode-carrier-info').textContent =
-                        `${file.name} | ${img.width}x${img.height}`;
-                };
-                img.src = URL.createObjectURL(file);
+                ST3GGInputPorts.loadInput('godmode-carrier-input', file).catch(error => notify(error.message, 'error'));
             });
 
             // SPECTER payload file drop zone
             setupDropZone('godmode-file-drop', 'godmode-file-input', file => {
-                const reader = new FileReader();
-                reader.onload = e => {
-                    state.godmodePayloadFile = new Uint8Array(e.target.result);
-                    state.godmodePayloadFileName = file.name;
-                    document.getElementById('godmode-file-info').textContent =
-                        `${file.name} (${formatSize(file.size)})`;
-                };
-                reader.readAsArrayBuffer(file);
+                ST3GGInputPorts.loadInput('godmode-file-input', file).catch(error => notify(error.message, 'error'));
             });
 
             // SPECTER decode drop zone
             setupDropZone('godmode-decode-drop', 'godmode-decode-input', file => {
-                const img = new Image();
-                img.onload = () => {
-                    state.godmodeDecodeCanvas = imageToCanvas(img);
-                    document.getElementById('godmode-decode-preview').src = img.src;
-                    document.getElementById('godmode-decode-preview').classList.remove('hidden');
-                };
-                img.src = URL.createObjectURL(file);
+                ST3GGInputPorts.loadInput('godmode-decode-input', file).catch(error => notify(error.message, 'error'));
             });
 
             // Audio spectrogram art image drop zone (for encode panel)
             setupDropZone('audio-specart-drop', 'audio-specart-input', file => {
-                const img = new Image();
-                img.onload = () => {
-                    state.audioSpecartImage = img;
-                    document.getElementById('audio-specart-preview').src = img.src;
-                    document.getElementById('audio-specart-preview').classList.remove('hidden');
-                    notify('Image loaded for spectrogram art!', 'success');
-                };
-                img.src = URL.createObjectURL(file);
+                ST3GGInputPorts.loadInput('audio-specart-input', file).catch(error => notify(error.message, 'error'));
             });
 
             // Audio LSB bits change
@@ -23267,60 +23025,12 @@ Binary data (${formatSize(data.length)})
 
             // AI Agent — REVEAL upload zone
             setupDropZone('aiagent-reveal-drop', 'aiagent-reveal-input', file => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    state.aiAgentFileBytes = new Uint8Array(e.target.result);
-                    const bytes = state.aiAgentFileBytes;
-                    let detectedType = file.name.split('.').pop()?.toUpperCase() || 'UNKNOWN';
-                    if (bytes[0]===0x89 && bytes[1]===0x50) detectedType = 'PNG';
-                    else if (bytes[0]===0xFF && bytes[1]===0xD8) detectedType = 'JPEG';
-                    else if (bytes[0]===0x47 && bytes[1]===0x49 && bytes[2]===0x46) detectedType = 'GIF';
-                    else if (bytes[0]===0x42 && bytes[1]===0x4D) detectedType = 'BMP';
-                    else if (bytes[0]===0x25 && bytes[1]===0x50 && bytes[2]===0x44) detectedType = 'PDF';
-                    else if (bytes[0]===0x50 && bytes[1]===0x4B) detectedType = 'ZIP';
-                    state.aiAgentFileType = detectedType;
-                    if (detectedType === 'JPEG') { state.aiAgentJpegData = bytes; }
-                };
-                reader.readAsArrayBuffer(file);
-
-                const img = new Image();
-                img.onload = async () => {
-                    if (state.aiAgentFileBytes && state.aiAgentFileBytes[0]===0x89 && state.aiAgentFileBytes[1]===0x50) {
-                        const rawCanvas = await pngBytesToCanvas(state.aiAgentFileBytes);
-                        state.aiAgentCanvas = rawCanvas || imageToCanvas(img);
-                    } else {
-                        state.aiAgentCanvas = imageToCanvas(img);
-                    }
-                    state.aiAgentRevealCanvas = state.aiAgentCanvas;
-                    state.aiAgentImage = img;
-                    document.getElementById('aiagent-reveal-preview').src = img.src;
-                    document.getElementById('aiagent-reveal-preview').classList.remove('hidden');
-                    const ext = state.aiAgentFileType || file.name.split('.').pop()?.toUpperCase() || 'UNKNOWN';
-                    document.getElementById('aiagent-reveal-info').textContent = `${img.naturalWidth} x ${img.naturalHeight} (${ext})`;
-                    const infoBtn = document.getElementById('checklist-info-btn');
-                    if (infoBtn) {
-                        infoBtn.style.display = 'block';
-                        const checklist = getChecklistForFileType(ext);
-                        document.getElementById('checklist-info-text').textContent = `View ${checklist.techniques.length} techniques for ${ext}`;
-                    }
-                    notify('File loaded for Reveal', 'success');
-                };
-                img.src = URL.createObjectURL(file);
+                ST3GGInputPorts.loadInput('aiagent-reveal-input', file).catch(error => notify(error.message, 'error'));
             });
 
             // AI Agent — CONCEAL upload zone
             setupDropZone('aiagent-conceal-drop', 'aiagent-conceal-input', file => {
-                const img = new Image();
-                img.onload = () => {
-                    state.aiAgentCanvas = imageToCanvas(img);
-                    state.aiAgentConcealCanvas = state.aiAgentCanvas;
-                    state.aiAgentImage = img;
-                    document.getElementById('aiagent-conceal-preview').src = img.src;
-                    document.getElementById('aiagent-conceal-preview').classList.remove('hidden');
-                    document.getElementById('aiagent-conceal-info').textContent = `${img.naturalWidth} x ${img.naturalHeight} (Carrier)`;
-                    notify('Carrier image loaded for Conceal', 'success');
-                };
-                img.src = URL.createObjectURL(file);
+                ST3GGInputPorts.loadInput('aiagent-conceal-input', file).catch(error => notify(error.message, 'error'));
             });
 
             // AI Agent iterations slider
@@ -23331,18 +23041,23 @@ Binary data (${formatSize(data.length)})
             // Shared Agent key restoration and saving live in st3gg-image-agent.js.
         });
     </script>
+    <script src="st3gg-transfers.js?v=20261104-3"></script>
+    <script src="st3gg-workflow.js?v=20261104-3"></script>
+    <script src="st3gg-workflow-ports.js?v=20261104-3"></script>
+    <script src="st3gg-workbench.js?v=20261104-3"></script>
+    <script src="st3gg-workflow-ui.js?v=20261104-3"></script>
     <script src="polyglot-core.js?v=20261025-zipcomments5"></script>
     <script src="polyglot-demos.js"></script>
-    <script src="st3gg-image-agent.js?v=20261022-reference7"></script>
+    <script src="st3gg-image-agent.js?v=20261104-3"></script>
     <script src="st3gg-agent-models.js?v=20261028-models2"></script>
     <script src="st3gg-openrouter-auth.js?v=20261023-feedback1"></script>
     <script src="polyglot-size.js?v=20261025-zipcomments5"></script>
     <script src="polyglot-payloads.js"></script>
-    <script src="polyglot-presets.js?v=20261022-reference7"></script>
+    <script src="polyglot-sequences.js?v=20261104-sequences1?v=20261022-reference7"></script>
     <script src="polyglot-help.js"></script>
     <script src="polyglot-image-library.js"></script>
-    <script src="polyglot-workspace.js?v=20261025-zipcomments5"></script>
-    <script src="polyglot.js?v=20261025-zipcomments5"></script>
+    <script src="polyglot-workspace.js?v=20261104-sequences1"></script>
+    <script src="polyglot.js?v=20261104-3"></script>
     <script>
         if (new URLSearchParams(location.search).get('preview') === 'polyglot') {
             document.addEventListener('DOMContentLoaded', () => activatePolyglot({ announce: false }));

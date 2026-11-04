@@ -45,9 +45,57 @@
 
 ---
 
+## Reusing outputs between tools
+
+The shared **Your work** bar lists uploaded files and completed results for this
+visit. **Use existing…** beside an input filters that list to compatible files or
+text; image inputs can also use the existing saved carrier library. Result menus
+use the same input declarations. Replacing an occupied input requires explicit
+confirmation. Transfers preserve unrelated drafts and settings and never run a
+tool or start an AI request.
+
+Ports connect image/audio Encode, Decode and Analyze; Agent Reveal, Conceal and
+context; nested image carriers and payloads; SPECTER; Text Lab; and selected
+image+ZIP layer carriers, image payloads, archive files and workspace imports.
+Plain images are distinct from image+ZIP containers. Nested and SPECTER encoders
+now produce a preview with Download and Use in actions instead of automatically
+downloading. Agent artifacts, text outputs and analysis reports join the shared
+work list. Payloads and results are held in memory until reload, and can be
+removed from the work list without clearing their existing destination inputs.
+
+Configuration is the single home for the connection and shared analysis, image
+and vision/planning models. A polyglot run may override the planning model.
+Text Lab starts hidden and unlocks by triple-clicking the green footer animation.
+All hidden mode destinations remain unavailable until their own unlock is used.
+The two nesting tools are labelled **Image + ZIP layers** and **Nested image
+payloads** to distinguish their different file structures.
+
+The implementation is split by responsibility:
+
+- `st3gg-transfers.js`: immutable `artifact({blob, text, name, source})` snapshots,
+  input `register({id, label, accepts, available, occupied, receive, reveal})`,
+  compatibility checks, replacement protection, result menus and session outputs.
+- `st3gg-workflow.js`: byte-preserving media loaders and result adapters.
+- `st3gg-workflow-ports.js`: declarative input roles shared by uploads, pastes and
+  transfers. `transfer(artifact, id)` returns `needsReplacement` if occupied;
+  callers must explicitly opt into replacement.
+- `st3gg-workbench.js`: the reusable filtered input picker and work list.
+- `st3gg-workflow-ui.js`: shared settings and result controls.
+
+To connect another tool, register its input roles, publish completed artifacts
+with `publish(key, artifact)`, and mount its result menu with `mount(host, producer)`.
+Use the same receive handler for native upload and transfer paths. Preserve
+original file bytes separately from display canvases. Snapshots are not live
+links; downstream edits never modify the source.
+
+Browser regression checks: serve the repository on port 8775, start a separate
+Chrome with `--remote-debugging-port=9337` and its own `--user-data-dir`, then run
+`node tests/workflow-browser.cjs` (Node 22+). The checks replace work only in that
+isolated browser. Set `WORKFLOW_SCREENSHOTS` to an output folder to save captures.
+
 ## Nested polyglots browser workspace
 
-The Agent tab's model field fetches OpenRouter's current text-output model catalog
+Configuration's analysis model field fetches OpenRouter's current text-output model catalog
 when focused. Type a model name, provider or ID to filter it; keyboard selection
 and manual IDs are supported. Models used in successful Agent requests appear
 under **Frequently used**, beneath the collapsible **Recommended** submenu.
@@ -57,8 +105,7 @@ The refresh control retries catalog discovery without changing the current selec
 
 ### Connect OpenRouter
 
-Choose **Connect OpenRouter** in Agent settings or the nested workspace's **Model
-settings**. Authorize ST3GG in the separate window; the app exchanges the returned
+Choose **Connect OpenRouter** in **Configuration**. Authorize ST3GG in the separate window; the app exchanges the returned
 code using OAuth PKCE (SHA-256) and uses the new key for analysis, planning and image
 generation. Your workspace stays open during sign-in. AI requests use your own
 OpenRouter credits. No client secret or backend is needed.
@@ -79,16 +126,16 @@ arrive within 800 ms of the previous one, matching the existing corner Easter eg
 The bottom-right unlock-all corner also reveals it. Choose **Deactivate mode**
 to hide the tab again; the current run remains in the tab until reload. The old
 `#polyglot` fragment does not bypass the unlock. The interface uses a
-collapsible preset library, run configuration, a pan/zoom containment canvas and
-a selected-layer inspector. The 36 presets cover containers, branching structures,
-AI image sequences, all nine image encoders and imported-edit examples.
+collapsible image sequence library, run configuration, a pan/zoom containment canvas and
+a selected-layer inspector. The 12 image sequences supply composed scene progressions. Layer counts, branching,
+encoding methods, files and editing use the normal workspace controls.
 
 The workspace keeps the app's dark surfaces and monospace type, with a gold,
 champagne and amethyst palette over aubergine panels.
 The shared banner and horizontal navigation stay visible above the workspace.
 The unlocked tab uses the gold mode styling. Independently scrolling sidebars and contextual
 editors sit around the layer canvas; **New run** starts a fresh nested-image run.
-Local font, icon and preset-preview sources are recorded in
+Local font, icon and sequence-preview sources are recorded in
 [`assets/polyglot/SOURCES.md`](assets/polyglot/SOURCES.md).
 
 The flow is **Configure a layer → Create or choose its image → Continue to the next

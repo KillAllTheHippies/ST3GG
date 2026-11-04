@@ -1,0 +1,44 @@
+/* Scoped additions retain ST3GG's existing type, colours and button treatment. */
+.result-actions { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.transfer-menu { position: relative; color: var(--primary); font-size: 12px; }
+.transfer-menu[open] { z-index: 10001; }
+.transfer-menu > summary { cursor: pointer; padding: 10px 16px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-hover); list-style-position: inside; }
+.transfer-menu > summary:hover { border-color: var(--primary); }
+.transfer-menu > summary:focus-visible, .transfer-choices button:focus-visible { outline: 2px solid var(--secondary); outline-offset: 3px; }
+.transfer-choices { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: min(310px, calc(100vw - 64px)); max-height: 60vh; overflow-y: auto; padding: 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-card); box-shadow: 0 8px 24px #0008; }
+.transfer-menu.transfer-up .transfer-choices { top: auto; bottom: calc(100% + 6px); }
+.transfer-choices .btn { display: block; width: 100%; text-align: left; white-space: normal; margin: 2px 0; color: #cbd5db; text-transform: none; letter-spacing: 0; font-size: 12px; line-height: 1.5; padding: 10px 12px; }
+.transfer-choices .btn:hover { color: var(--primary); }
+.transfer-choices p { color: #b8c2cc; line-height: 1.5; margin: 6px; }
+.transfer-origin { margin: 0 0 12px; padding: 8px 0; color: var(--secondary); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .transfer-menu > summary, .transfer-choices .btn { min-height: 44px; } }
+.workflow-bar { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:16px 20px; margin:0 0 20px; border:1px solid var(--border); background:var(--bg-card); border-radius:4px; }
+.workflow-bar strong { color:var(--primary); font-size:14px; }
+.workflow-bar p { color:#a9b7c3; font-size:12px; line-height:1.6; margin-top:5px; }
+.workflow-bar > button { flex-shrink:0; color:var(--primary); }
+.work-input-actions { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 12px; }
+.work-input-actions .btn, .work-reuse { color:#b8c7d4; font-size:11px; padding:8px 12px; text-transform:none; letter-spacing:0; }
+.work-picker { color:#d2dce5; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:24px; width:min(820px,calc(100vw - 32px)); max-height:85vh; margin:auto; overflow:auto; }
+.work-picker::backdrop { background:#000b; }
+.work-picker-heading { display:flex; gap:20px; align-items:center; justify-content:space-between; margin-bottom:20px; }
+.work-picker h2 { color:var(--primary); font-size:18px; }
+.work-picker p { font-size:12px; line-height:1.7; }
+.work-item { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:16px 0; border-top:1px solid var(--border); }
+.work-item > div:first-child { flex:1; min-width:180px; overflow-wrap:anywhere; }
+.work-item strong { font-size:13px; }
+.work-item p { color:#9cabba; margin-top:4px; }
+.work-item .result-actions { margin:0; }
+.work-item .btn, .work-picker-heading .btn, .work-upload { color:#cbd5db; font-size:12px; text-transform:none; letter-spacing:0; }
+.work-empty { padding:12px 0 20px; }
+.work-upload { display:block; padding-top:20px; border-top:1px solid var(--border); }
+.work-upload input { display:block; margin:10px 0; max-width:100%; }
+.work-saved { margin-top:20px; }
+.work-saved summary, .transfer-group > summary { cursor:pointer; padding:10px 6px; color:#cbd5db; }
+.work-saved button { display:block; margin:8px 0; }
+.work-error { color:#ff9999; margin:10px 0; }
+.workflow-model-summary, .workflow-model-status, .workflow-settings-note { color:#a9b7c3; font-size:12px; line-height:1.7; margin-top:10px; overflow-wrap:anywhere; }
+.workflow-result p { color:#b8c7d4; font-size:12px; margin:10px 0; }
+#configuration-panel > .card { max-width:850px; }
+#configuration-panel .input, #configuration-panel .select { width:100%; }
+#quick-download-btn, [hidden] { display:none !important; }
+@media(max-width:600px) { .workflow-bar { align-items:flex-start; padding:14px; gap:12px; } .workflow-bar > button { padding:10px; font-size:11px; } .work-picker { padding:16px; } .work-reuse, .work-picker .btn { min-height:44px; } }

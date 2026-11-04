@@ -3,10 +3,10 @@
     'use strict';
     const C = PolyCore, P = PolyPayloads, textEncoder = new TextEncoder(), textDecoder = new TextDecoder();
     let api, root, selected, busy = false, error = '', progress = '', view = 'plan', reviewed = false, generated = false, workspaceStage = 'setup';
-    let presetOpen = false, presetQuery = '', presetGroup = 'All', activePreset = 'chain3', previewPreset = 'chain3', zoom = 1, help = null, modelList = [], runTouched = false;
+    let sequenceLibraryOpen = false, sequenceQuery = '', previewSequence = '', zoom = 1, help = null, runTouched = false;
     let activeFile = null, activeStep = null, activeComment = null, templateId = 'layer-notes', templateTargets = new Set(), lastOutput = null, knownRoot = null;
     let objectURLs = [], panning = null, canvasScroll = { left: 0, top: 0 }, rootBaseline = 0;
-    let autoFit=true, imageDialogLayer=null, planningModels=[];
+    let autoFit=true, imageDialogLayer=null;
     const expanded = new Set(), fileDrafts = new WeakMap(), newFileDrafts = new Map(), templateDrafts = new Map(), instructionErrors = new Map();
     const config = { count: 3, shape: 'chain', source: 'ai', width: 1024, height: 1024, brief: '', reference: '', planModel: '', localStyle: 'texture', variables: { title: 'Layer notes', notes: 'Archive contents for this layer.' } };
     const templates = [{ id: 'layer-notes', name: 'Layer notes', filename: 'README.md', content: '# {{title}}\nLayer {{layer.index}}: {{layer.filename}}\n{{notes}}\n' }];
@@ -56,7 +56,7 @@
     function badge(parent, label, state = '') { const b = el('span', label, 'nw-badge ' + state); parent.append(b); return b; }
     function image(parent, bytes, cls = '') {
         if (!bytes) { const placeholder = el('div', null, 'nw-placeholder ' + cls);placeholder.append(icon('image-placeholder'));placeholder.setAttribute('aria-label','No image selected');parent.append(placeholder); return; }
-        if(typeof bytes==='string'){const im=el('img',null,cls);im.src=bytes;im.alt='Preset image preview';parent.append(im);return;}
+        if(typeof bytes==='string'){const im=el('img',null,cls);im.src=bytes;im.alt='Sequence image preview';parent.append(im);return;}
         const url = URL.createObjectURL(new Blob([bytes])); objectURLs.push(url); const im = el('img', null, cls); im.src = url; im.alt = 'Layer carrier'; parent.append(im);
     }
     function dirty(node, pixel = false) {
@@ -110,35 +110,26 @@
         for (const [n, parent] of plans) n.parent = parent;
         config.count = count; config.shape = shape; selected = list.some(n => n.id === selected) ? selected : root.id;autoFit=true; mutateRun(); return true;
     }
-    async function choosePreset(preset, initial = false) {
-        if (!initial && (runTouched || [...fileDraftsPending()].length) && !confirm(`Load “${preset.title}” and replace the current run, including pending edits?`)) return;
+    function newRun(sequence = null, initial = false) {
+        const title = sequence ? `Load “${sequence.title}”` : 'Start a new run';
+        if (!initial && (runTouched || [...fileDraftsPending()].length) && !confirm(`${title} and replace the current run, including pending edits?`)) return;
         for(const node of nodes())rememberImage(node);
-        activePreset = preset.id; previewPreset = preset.id; const n = C.layer(preset.names?.[0] + '.png'); n.name = preset.names?.[0] ? preset.names[0] + '.png' : 'outer.png';
+        previewSequence = sequence?.id || '';
+        const n = C.layer(sequence?.names?.[0] ? sequence.names[0] + '.png' : 'outer.png');
         api.replaceRoot(n); root = n; knownRoot = root; selected = root.id;
-        config.count = 1; config.shape = preset.shape; config.source = preset.source; config.width = 1024; config.height = 1024; config.brief = preset.brief || '';config.reference='';
-        rebuildStructure(preset.count, preset.shape);
+        config.count = 1; config.shape = 'chain'; config.source = 'ai'; config.width = 1024; config.height = 1024; config.brief = sequence?.brief || '';config.reference='';
+        rebuildStructure(sequence?.count || 3, 'chain');
         const list = nodes();
         list.forEach((node, index) => {
-            if (preset.names?.[index]) { node.name = preset.names[index] + '.png'; const entry = node.parent?.entries.find(e => e.child === node); if (entry) entry.name = node.name; }
-            node.role = preset.names?.[index] || (index ? 'Inner layer ' + index : 'Outer image');
-            if(preset.group==='Image sequences')node.previewImage=`assets/polyglot/previews/${['landscape','valley','tree','branch','leaf'][index%5]}.png`;
+            if (sequence?.names?.[index]) { node.name = sequence.names[index] + '.png'; const entry = node.parent?.entries.find(e => e.child === node); if (entry) entry.name = node.name; }
+            node.role = sequence?.names?.[index] || (index ? 'Inner layer ' + index : 'Outer image');
+            if(sequence)node.previewImage=`assets/polyglot/previews/${['landscape','valley','tree','branch','leaf'][index%5]}.png`;
             node.prompt = sequencePrompt(node, index, list.length);
             node.variables = { title: node.role, notes: `Contents for ${node.name}.` };
             node.settings = { method: 'none', payload: '', options: {} }; node.payloadSteps = [];
-            if (preset.method) {
-                const step = P.create(preset.method); step.payload = `ST3GG ${preset.method} example, layer ${index + 1}.`;
-                if (preset.method === 'F5') { step.options.password = 'demo-password'; node.name = node.name.replace(/\.png$/, '.jpg'); const e = node.parent?.entries.find(e => e.child === node); if (e) e.name = node.name; }
-                if (preset.filePayload) { step.filePayload = textEncoder.encode('Example binary-file payload\n'); step.fileName = 'payload.txt'; }
-                node.payloadSteps.push(step); node.imageDirty = true;
-            }
-            const add = (name, contents) => node.entries.push({ name, kind: 'file', bytes: typeof contents === 'string' ? textEncoder.encode(contents) : contents });
-            if (preset.files) add('README.md', `# ${preset.title}\n\n${node.name}\n\nEdit this file in the archive editor.\n`);
-            if (preset.files === 'instructions') { add('AGENTS.md', `# Layer ${index + 1}\n\nInstructions stored as archive content in ${node.name}.\n`); add('attachment.bin', new Uint8Array([83,84,51,71,71,index])); }
-            if (preset.files === 'basic') add('attachment.txt', 'An ordinary archive entry, independent of the image payload.\n');
-            if (preset.files === 'folders') { add('documents/', new Uint8Array()); node.entries[node.entries.length - 1].kind = 'folder'; add('documents/notes.txt', 'Notes in a relative archive folder.\n'); }
         });
-        activeFile = null; activeStep = null; reviewed = false; generated = false; view = ''; error = ''; rootBaseline = 0; templateTargets = new Set(list.map(n => n.id)); presetOpen = false;
-        root.recipe = preset; runTouched = false; workspaceStage='setup'; render();
+        activeFile = null; activeStep = null; reviewed = false; generated = false; view = ''; error = ''; rootBaseline = 0; templateTargets = new Set(list.map(n => n.id)); sequenceLibraryOpen = false;
+        lastOutput = null; runTouched = false; workspaceStage='setup'; render();
     }
     const readyExamples = [
         {id:'message',title:'A photo with a hidden message',description:'One landscape photo, a hidden message and a README inside its ZIP.',images:['landscape'],shape:'chain',method:'LSB',brief:'A mountain landscape with a river valley.'},
@@ -178,9 +169,9 @@
             root=layers[0];knownRoot=root;selected=root.id;api.replaceRoot(root);
             config.count=layers.length;config.shape=example.shape;config.source='upload';config.brief=example.brief;config.reference='';
             const dims=PolySize.dimensions(root.image);config.width=dims.width;config.height=dims.height;
-            activePreset='';activeFile=null;activeStep=null;lastOutput=null;rootBaseline=0;help=null;
+            activeFile=null;activeStep=null;lastOutput=null;rootBaseline=0;help=null;
             templateTargets=new Set(layers.map(n=>n.id));reviewed=true;generated=true;runTouched=true;
-            presetOpen=false;autoFit=true;canvasScroll={left:0,top:0};workspaceStage='layers';view='review';error='';
+            sequenceLibraryOpen=false;autoFit=true;canvasScroll={left:0,top:0};workspaceStage='layers';view='review';error='';
             progress=example.title+' loaded. All images and text are ready to build.';
         });
     }
@@ -356,19 +347,8 @@
                 } else bytes = await localCarrier(node);
                 C.check(signal); putImage(node, bytes); await C.tick();
             }
-            const recipe = root.recipe;
-            if (recipe?.files === 'gallery') {
-                for (let i = 0; i < 2; i++) { const name = `gallery/image-${i + 1}.png`; if (!root.entries.some(e => e.name === name)) root.entries.push({ name, kind: 'file', bytes: await localCarrier(root) }); }
-            }
             generated = nodes().every(n => n.image); workspaceStage='layers'; view='previews';
             progress = only ? `${only.name}: image ready.` : `Created ${list.length} layer images.`;
-            if (recipe?.importedExample && !root.exampleOpened) {
-                const output = await C.build(root, P.adapter(api.adapter), signal, message => { progress = message; render(); });
-                const imported = await C.open(output, root.name, api.canvasOf, signal); C.check(signal);
-                const before = nodes(), stack = [imported], after = []; while (stack.length) { const n = stack.pop(); after.push(n); stack.push(...n.entries.filter(e => e.child).map(e => e.child).reverse()); }
-                after.forEach((n,i) => { n.payloadSteps = structuredClone(before[i].payloadSteps); n.imageDirty = false; n.imageSourceReady = true; });
-                api.replaceRoot(imported); root = imported; knownRoot = root; selected = root.id; root.exampleOpened = true;
-            }
         });
     }
     function bytes64(bytes) { let s = ''; for (let i = 0; i < bytes.length; i += 16384) s += String.fromCharCode(...bytes.subarray(i,i + 16384)); return btoa(s); }
@@ -488,6 +468,7 @@
             for (const n of nodes()) for (const s of P.steps(n)) if (s.enabled !== false && n.validation.includes('payloads decoded')) s.status = 'Verified';
             if (zipOnly) { const zip = await C.readZip(bytes,signal); api.download(await C.writeZip(zip.entries,new Uint8Array(),signal,zip.commentBytes),target.name.replace(/\.[^.]+$/,'.zip')); }
             else if (download) api.download(bytes,target.name);
+            window.ST3GGWorkflow?.recordBytes('polyglot.'+target.id,bytes,target.name,'Image + ZIP build');
             lastOutput = target === root ? bytes : lastOutput;expanded.add('result-layers');expanded.add('result-sizes');view = 'results'; workspaceStage='export'; generated = nodes().every(n=>n.image); reviewed = true;
         });
     }
@@ -513,26 +494,29 @@
         api.saveText(node,entry,d.text); dirty(node); d.entry = entry; d.initial = d.text; d.creating = false; newFileDrafts.delete(node.id);fileDrafts.set(entry,d); progress = name + ' saved.'; render();
     }
     function helpButton(parent, method) { const b = button(parent,'?',() => { help = help === method ? null : method;if(help)expanded.add('help-'+method+'-example');render(); },'nw-help-button',`About ${PolyTechniqueHelp[method].title}`); b.setAttribute('aria-label',`Explain ${method}`); b.setAttribute('aria-expanded',String(help === method)); }
-    function drawPresets(parent) {
-        const header = row(parent,'nw-presets-header');
-        const toggle = button(header,'Presets',() => {presetOpen=!presetOpen;render();});toggle.prepend(icon(presetOpen?'chevron-down':'chevron-right'));badge(toggle,String(PolyPresets.length));toggle.append(icon('chevron-right'));toggle.setAttribute('aria-expanded',String(presetOpen));
-        if (!presetOpen) return;
-        field(parent,'Search presets',presetQuery,v=>{presetQuery=v;render();},{key:'preset-search',live:true});
-        const categories=row(parent,'nw-preset-categories');categories.setAttribute('role','group');categories.setAttribute('aria-label','Preset category');for(const category of ['All','Containers','Structures','Image sequences','Encoding','Editing']){const choice=button(categories,category,()=>{presetGroup=category;render();},presetGroup===category?'active':'');choice.setAttribute('aria-pressed',String(presetGroup===category));}
-        const list=el('div',null,'nw-preset-list');parent.append(list);
-        const matches=PolyPresets.filter(p=>(presetGroup==='All'||p.group===presetGroup)&&(p.title+' '+p.description+' '+(p.brief||'')).toLowerCase().includes(presetQuery.toLowerCase()));
-        if(matches.length&&!matches.some(p=>p.id===previewPreset))previewPreset=matches[0].id;
-        for (const p of matches) {
-            const b=button(list,'',()=>{previewPreset=p.id;render();},p.id===previewPreset?'nw-preset-selected':'');
-            if(p.group==='Image sequences')image(b,`assets/polyglot/previews/${p.id==='zoom-out'?'leaf':p.id==='seasons'?'tree':'landscape'}.png`,'nw-preset-thumbnail');else b.append(icon(p.method?'file-text':p.group==='Structures'?'layers-intersect':'archive'));
-            b.append(el('strong',p.title),el('span',String(p.count),'nw-preset-count'));b.setAttribute('aria-pressed',String(p.id===previewPreset));b.setAttribute('aria-label',`${p.title}, ${p.count} ${p.count===1?'image':'images'}`);
+    function drawSequences(parent) {
+        const header = row(parent,'nw-sequences-header');
+        const toggle = button(header,'Image sequences',() => {sequenceLibraryOpen=!sequenceLibraryOpen;render();});
+        toggle.prepend(icon(sequenceLibraryOpen?'chevron-down':'chevron-right'));
+        badge(toggle,String(PolySequences.length));toggle.setAttribute('aria-expanded',String(sequenceLibraryOpen));
+        if (!sequenceLibraryOpen) return;
+        field(parent,'Search image sequences',sequenceQuery,v=>{sequenceQuery=v;render();},{key:'sequence-search',live:true});
+        const list=el('div',null,'nw-sequence-list');parent.append(list);
+        const matches=PolySequences.filter(sequence=>(sequence.title+' '+sequence.description).toLowerCase().includes(sequenceQuery.toLowerCase()));
+        if(matches.length&&!matches.some(sequence=>sequence.id===previewSequence))previewSequence=matches[0].id;
+        for (const sequence of matches) {
+            const b=button(list,'',()=>{previewSequence=sequence.id;render();},sequence.id===previewSequence?'nw-sequence-selected':'');
+            image(b,`assets/polyglot/previews/${sequence.id==='zoom-out'?'leaf':sequence.id==='seasons'?'tree':'landscape'}.png`,'nw-sequence-thumbnail');
+            b.append(el('strong',sequence.title),el('span',String(sequence.count),'nw-sequence-count'));
+            b.setAttribute('aria-pressed',String(sequence.id===previewSequence));b.setAttribute('aria-label',`${sequence.title}, ${sequence.count} images`);
         }
-        if(!matches.length)note(list,'No presets match this search.');else{const selectedRow=list.querySelector('.nw-preset-selected');if(selectedRow)list.scrollTop=Math.max(0,selectedRow.offsetTop-list.offsetTop-8);}
-        const preview=matches.find(p=>p.id===previewPreset)||matches[0];
-        if(preview){const detail=el('section',null,'nw-preset-detail');detail.append(el('strong',preview.title));note(detail,preview.description);button(detail,'Use this preset',()=>choosePreset(preview));parent.append(detail);}
+        if(!matches.length)note(list,'No image sequences match this search.');
+        else {const selectedRow=list.querySelector('.nw-sequence-selected');if(selectedRow)list.scrollTop=Math.max(0,selectedRow.offsetTop-list.offsetTop-8);}
+        const preview=matches.find(sequence=>sequence.id===previewSequence)||matches[0];
+        if(preview){const detail=el('section',null,'nw-sequence-detail');detail.append(el('strong',preview.title));note(detail,preview.description);button(detail,'Use this sequence',()=>newRun(preview));parent.append(detail);}
     }
     function drawRun(parent) {
-        button(parent,'Ready-to-build examples',()=>{view='ready-examples';render();},'nw-examples-entry');drawPresets(parent);const runHeading=row(parent,'nw-run-heading');runHeading.append(el('h3','Run configuration'));button(runHeading,'Usage examples',()=>{view='examples';render();},'quiet');
+        button(parent,'Ready-to-build examples',()=>{view='ready-examples';render();},'nw-examples-entry');drawSequences(parent);const runHeading=row(parent,'nw-run-heading');runHeading.append(el('h3','Run configuration'));button(runHeading,'Usage examples',()=>{view='examples';render();},'quiet');
         const count=field(parent,'Total layers',nodes().length,v=>{if(rebuildStructure(validPixels(v),config.shape)) render();},{type:'number',key:'layer-count'});count.parentElement.classList.add('nw-count-field');count.min='1';
         field(parent,'Structure',config.shape,v=>{rebuildStructure(nodes().length,v);render();},{choices:[['chain','One inside the next'],['branches','Together inside the outer image'],['balanced','Split into groups'],['deep-branch','Together, with one nested further']]});
         disclosure(parent,'How this structure nests images','layout-explanation',drawLayoutDescription);
@@ -558,23 +542,12 @@
         const input=document.querySelector('.nw-run [data-focus="api-key"]');
         input?.focus({preventScroll:true});input?.scrollIntoView({block:'center',behavior:'instant'});
     }
-    function agentModel() { const value=$('aiagent-model').value;return value==='custom'?$('aiagent-custom-model').value.trim():value; }
-    function modelControl(parent,label,value,change,models,discover,key,defaultModel='') {
-        const input=field(parent,label,value,change,{key,placeholder:defaultModel?'Agent default: '+defaultModel:'Search or enter a model ID'}),wrapper=input.parentElement;
-        const control=el('div',null,'nw-model-control'),list=el('datalist');list.id='nw-model-options-'+uid();input.setAttribute('list',list.id);input.autocomplete='off';
-        for(const model of [...new Map([{id:value},...models].filter(m=>m.id).map(m=>[m.id,m])).values()]){const option=el('option');option.value=model.id;if(model.name)option.label=model.name;list.append(option);}
-        input.replaceWith(control);control.append(input);wrapper.append(list);
-        const find=button(control,'',async()=>{find.disabled=true;await discover();render();},'quiet','Find '+(key==='plan-model'?'planning':'image')+' models');find.append(icon('refresh'));find.setAttribute('aria-label',find.title);
-        if(defaultModel){const reset=button(control,'',()=>{change('');render();},'quiet','Use Agent default: '+defaultModel);reset.append(icon('arrow-left'));reset.setAttribute('aria-label',reset.title);}
-    }
     function drawModelSettings(body) {
-        ST3GGOpenRouterAuth.mount(body, 'nw-button quiet');
-        const settings=ST3GGImageAgent.settings(),status=el('span',settings.apiKey?'Key loaded':'No key loaded','nw-key-status');status.id='nw-key-status-'+uid();status.setAttribute('role','status');
-        const keyField=field(body,'Agent API key',settings.apiKey,v=>{ST3GGImageAgent.configure({apiKey:v});$('aiagent-api-key').dispatchEvent(new Event('input'));for(const indicator of document.querySelectorAll('.nw-key-status'))indicator.textContent=v.trim()?'Key loaded':'No key loaded';refreshNextAction();},{type:'password',key:'api-key',live:true});
-        keyField.parentElement.classList.add('nw-key-field');keyField.parentElement.append(status);keyField.setAttribute('aria-describedby',status.id);
-        note(body,'Keys are saved in this browser. Disconnect removes the saved key; revoke it in OpenRouter to disable it everywhere.');
-        modelControl(body,'Image model',settings.model,v=>ST3GGImageAgent.configure({model:v}),modelList,async()=>{modelList=await ST3GGImageAgent.models();},'image-model');
-        modelControl(body,'Vision / planning model',config.planModel||agentModel(),v=>{config.planModel=v.trim();},planningModels,async()=>{planningModels=await ST3GGImageAgent.models(undefined,'planning');},'plan-model',agentModel());
+        note(body,'Connection, image model and planning defaults are shared in Configuration.');
+        button(body,'Open Configuration',()=>document.querySelector('.tabs [data-tab="configuration"]').click());
+        note(body,'Image model: '+(ST3GGImageAgent.settings().model||'Not selected'));
+        field(body,'Planning model for this run (optional)',config.planModel,v=>{config.planModel=v.trim();},{key:'plan-model-override'});
+        note(body,'Leave blank to use the shared planning model.');
     }
     function drawLayoutDescription(parent) {
         const list=nodes(), children=list.filter(n=>n.parent===root), deep=list.filter(n=>n.parent&&n.parent!==root);
@@ -599,7 +572,7 @@
     }
     function drawCanvas(parent) {
         const toolbar=row(parent,'nw-canvas-title');toolbar.append(el('h3','Layers'));badge(toolbar,'Image + ZIP');
-        if(nodes().some(n=>!n.image&&n.previewImage))note(toolbar,'Preset preview · images not generated','nw-preview-caption');
+        if(nodes().some(n=>!n.image&&n.previewImage))note(toolbar,'Sequence preview · images not generated','nw-preview-caption');
         const viewport=el('div',null,'nw-canvas-viewport');viewport.id='nw-canvas';parent.append(viewport);
         const graph=layout(),availableWidth=viewport.clientWidth||760,availableHeight=viewport.clientHeight||550;
         if(autoFit)zoom=Math.min(1,(availableWidth-36)/graph.width,(availableHeight-36)/graph.height);
@@ -679,6 +652,8 @@
         const n=C.layer(name);n.parent=parent;n.canvasBelowParent=true;n.prompt=sequencePrompt(n,nodes().length,nodes().length+1);parent.entries.push({name,child:n,kind:'layer'});dirty(parent);selected=n.id;config.count=nodes().length;reviewed=false;generated=false;autoFit=true;view='';imageDialogLayer=n.id;render();
     }
     function drawInspector(parent,node) {
+        if(window.ST3GGWorkbench){const host=row(parent,'work-input-actions');ST3GGWorkbench.inputButton(host,'polyglot.carrier','Use existing image…');ST3GGWorkbench.inputButton(host,'polyglot.entry','Add existing file…');ST3GGWorkbench.inputButton(host,'polyglot.payload','Use existing payload…');
+        if(node.image)ST3GGTransfers.mount(host,()=>ST3GGWorkflow.fromBytes(node.image,node.name,'Selected layer carrier'));}
         const listOfLayers=nodes(),at=listOfLayers.indexOf(node),level=node.uiLevel||'Easy';
         const heading=el('div',null,'nw-inspector-heading');parent.append(heading);
         const title=row(heading);title.append(el('h2',node.name));
@@ -962,6 +937,7 @@
 
     }
     function drawResults(parent) {
+        if(lastOutput&&window.ST3GGTransfers){const host=row(parent,'result-actions');const value=ST3GGWorkflow.fromBytes(lastOutput,root.name,'Image + ZIP build');ST3GGTransfers.mount(host,()=>value);}
         const list=nodes(),built=!!root.original&&!root.dirty,validated=list.filter(n=>!n.dirty&&n.validation.includes('image decoded')),payloads=list.flatMap(n=>P.steps(n).filter(s=>s.enabled!==false)),verified=payloads.filter(s=>s.status==='Verified'),opaque=list.some(n=>n.entries.some(e=>e.issue));
         const heading=row(parent,'nw-build-heading');heading.append(el('h3','Build results'));if(built)badge(heading,'Built '+root.name,'good');
         const table=el('div',null,'nw-validation-table');parent.append(table);
@@ -1005,9 +981,9 @@
     }
     function drawHeader(frame,node) {
         const header=el('header',null,'nw-header');frame.append(header);
-        button(header,'New run',()=>choosePreset(PolyPresets.find(p=>p.id==='chain3')),'quiet','New nested image run');
+        button(header,'New run',()=>newRun(),'quiet','New nested image run');
         const stages=el('details',null,'nw-phase-menu'),phase=el('summary');stages.append(phase);header.append(stages);
-        const title=view==='ready-examples'?'Choose a ready-to-build example':view==='review'?'Ready to build':view==='results'?'08 · Download the completed file':view==='instructions'?'07 · Choose where instructions are stored':view==='templates'?'06 · Create a linked file template':view==='payload'?'05 · Configure payload techniques':view==='previews'?'04 · Refine generated images':view==='plan'?'03 · Review the image sequence':presetOpen?'02 · Choose a preset':'01 · Configure a run';
+        const title=view==='ready-examples'?'Choose a ready-to-build example':view==='review'?'Ready to build':view==='results'?'08 · Download the completed file':view==='instructions'?'07 · Choose where instructions are stored':view==='templates'?'06 · Create a linked file template':view==='payload'?'05 · Configure payload techniques':view==='previews'?'04 · Refine generated images':view==='plan'?'03 · Review the image sequence':sequenceLibraryOpen?'02 · Choose an image sequence':'01 · Configure a run';
         phase.append(el('span',title),icon('chevron-down'));const stageMenu=el('div',null,'nw-menu-items');stages.append(stageMenu);
         for(const[label,run]of[
             ['Run configuration',()=>{view='';workspaceStage='setup';render();}],
@@ -1040,7 +1016,7 @@
     function drawEditor(parent,node) {
         if(!view)return;
         const panel=el('section',null,'nw-editor');parent.append(panel);const top=row(panel,'nw-editor-title');top.append(el('span',['review','results','size'].includes(view)?'Complete output':view==='plan'?'Image sequence':`Selected layer: ${node.name}`));const close=button(top,'×',()=>{view='';render();},'quiet','Close editor');close.setAttribute('aria-label','Close editor');
-        if(view==='comments')drawComments(panel,node);else if(view==='ready-examples')drawReadyExamples(panel);else if(view==='examples'){panel.append(el('h3','Image prompt examples'));note(panel,'Choose an example for '+node.name+', then edit its description before generating. The preset library also contains complete editable runs.');drawPromptExamples(panel,node);}else if(view==='variables')drawVariables(panel,node);else if(view==='previews')drawPreviews(panel);else if(view==='review')drawReview(panel);else if(view==='plan')drawPlan(panel);else if(view==='payload')drawPayload(panel,node);else if(view==='file')drawFile(panel);else if(view==='templates')drawTemplates(panel,node);else if(view==='instructions')drawInstructions(panel,node);else if(view==='size')drawSize(panel);else if(view==='results')drawResults(panel);else if(view==='folder'){note(panel,activeFile.entry.name);for(const entry of node.entries.filter(e=>e.name.startsWith(activeFile.entry.name)&&e!==activeFile.entry))button(panel,entry.name,()=>entry.child?select(entry.child):editFile(node,entry));}
+        if(view==='comments')drawComments(panel,node);else if(view==='ready-examples')drawReadyExamples(panel);else if(view==='examples'){panel.append(el('h3','Image prompt examples'));note(panel,'Choose an example for '+node.name+', then edit its description before generating. The image sequence library contains editable scene progressions.');drawPromptExamples(panel,node);}else if(view==='variables')drawVariables(panel,node);else if(view==='previews')drawPreviews(panel);else if(view==='review')drawReview(panel);else if(view==='plan')drawPlan(panel);else if(view==='payload')drawPayload(panel,node);else if(view==='file')drawFile(panel);else if(view==='templates')drawTemplates(panel,node);else if(view==='instructions')drawInstructions(panel,node);else if(view==='size')drawSize(panel);else if(view==='results')drawResults(panel);else if(view==='folder'){note(panel,activeFile.entry.name);for(const entry of node.entries.filter(e=>e.name.startsWith(activeFile.entry.name)&&e!==activeFile.entry))button(panel,entry.name,()=>entry.child?select(entry.child):editFile(node,entry));}
     }
     function drawImageDialog(frame) {
         const node=nodes().find(n=>n.id===imageDialogLayer);if(!node){imageDialogLayer=null;return;}
@@ -1094,9 +1070,19 @@
     }
     document.addEventListener('st3gg-openrouter-key-change',()=>refreshNextAction());
     window.PolyFlow={
-        init(bridge){api=bridge;root=api.getRoot();knownRoot=root;selected=root.id;if(!root.image&&!root.entries.length)choosePreset(PolyPresets.find(p=>p.id==='chain3'),true);document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(help){help=null;render();}else if(view){view='';render();}}});document.addEventListener('click',e=>{for(const menu of document.querySelectorAll('.nw-file-menu[open],.nw-phase-menu[open]'))if(!menu.contains(e.target))menu.open=false;});window.addEventListener('resize',()=>{autoFit=true;render();});document.querySelector('.tabs [data-tab="polyglot"]')?.addEventListener('click',()=>requestAnimationFrame(()=>{autoFit=true;render();}));},
+        init(bridge){api=bridge;root=api.getRoot();knownRoot=root;selected=root.id;if(!root.image&&!root.entries.length)newRun(null,true);document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(help){help=null;render();}else if(view){view='';render();}}});document.addEventListener('click',e=>{for(const menu of document.querySelectorAll('.nw-file-menu[open],.nw-phase-menu[open]'))if(!menu.contains(e.target))menu.open=false;});window.addEventListener('resize',()=>{autoFit=true;render();});document.querySelector('.tabs [data-tab="polyglot"]')?.addEventListener('click',()=>requestAnimationFrame(()=>{autoFit=true;render();}));},
         render,error(message){error=message;render();},status(message){progress=message;if(busy||message)render();},setBusy(value){busy=value;if(value){error='';progress='';}render();},
-        projectLoaded(){if(!api)return;for(const node of nodes())rememberImage(node);root=api.getRoot();knownRoot=root;for(const node of nodes())rememberImage(node);selected=root.id;generated=nodes().every(n=>n.image);reviewed=true;activePreset='';view='plan';activeFile=null;activeStep=null;lastOutput=null;config.count=nodes().length;config.source='upload';runTouched=true;render();},
+        projectLoaded(){if(!api)return;for(const node of nodes())rememberImage(node);root=api.getRoot();knownRoot=root;for(const node of nodes())rememberImage(node);selected=root.id;generated=nodes().every(n=>n.image);reviewed=true;view='plan';activeFile=null;activeStep=null;lastOutput=null;config.count=nodes().length;config.source='upload';runTouched=true;render();},
+        workflow: {
+            build:()=>build(false),
+            hasCarrier:()=>!!current().image,
+            hasPayload:()=>P.steps(current()).some(step=>!!step.payload||!!step.filePayload),
+            hasProject:()=>!!root.image||!!root.entries.length||[...fileDraftsPending()].length>0,
+            carrier:async value=>{const node=current();const bytes=new Uint8Array(await value.blob.arrayBuffer());await api.canvasOf(bytes);putImage(node,bytes);render();},
+            entry:async value=>{const node=current();C.collision(node.entries,value.name);const bytes=new Uint8Array(await value.blob.arrayBuffer());node.entries.push({name:value.name,kind:'file',bytes});dirty(node);render();},
+            payload:async value=>{const node=current();const existing=P.steps(node);const step=existing.find(s=>s.id===activeStep)||existing[0]||P.create('LSB');if(step.linkedInstructions)throw new Error('This payload is linked to decoding instructions. Select an editable payload.');const bytes=new Uint8Array(await value.blob.arrayBuffer());if(!existing.includes(step))node.payloadSteps.push(step);step.payload=value.kind==='text'?value.text:'';step.filePayload=value.kind==='text'?null:bytes;step.fileName=value.kind==='text'?'':value.name;dirty(node,true);activeStep=step.id;view='payload';render();},
+            open:async value=>api.importFile(new File([value.blob],value.name,{type:value.blob.type}),{replace:true})
+        },
         showTools(node){selected=node.id;node.uiLevel='Expert';activeStep=P.steps(node)[0]?.id;view='payload';render();}
     };
 })();

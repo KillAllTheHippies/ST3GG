@@ -568,9 +568,9 @@
         }
         window.PolyFlow?.render();
     }
-    async function importFile(file) {
-        if (projectHasContent() && !confirm('Replace the current workspace with this image? Download any work you want to keep first.')) return;
-        return busy(async signal => {
+    async function importFile(file, { replace = false } = {}) {
+        if (projectHasContent() && !replace && !confirm('Replace the current workspace with this image? Download any work you want to keep first.')) return;
+        const imported = await busy(async signal => {
             const imported = await C.open(await bytesOf(file), file.name, canvasOf, signal, status);
             C.check(signal);
             root = imported; selected = { node: root }; demo = null; layerView = 'archive'; $('poly-demo-picker').open = false;
@@ -578,6 +578,8 @@
             status('Opened image and archive. Existing image bytes are preserved.');
             return imported;
         });
+        if (replace && !imported) throw new Error('The workspace could not be opened. Check its import message and try again.');
+        return imported;
     }
     document.addEventListener('DOMContentLoaded', () => {
         window.PolyFlow.init({

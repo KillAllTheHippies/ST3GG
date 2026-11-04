@@ -79,7 +79,7 @@
     async function plan({ brief, layers, reference, signal, model }) {
         const apiKey = settings().apiKey;
         if (!apiKey) throw new Error('Add your Agent API key in Model settings.');
-        model = model || document.getElementById('aiagent-model').value;
+        model = model || document.getElementById('planning-model')?.value.trim() || document.getElementById('aiagent-model').value;
         if (model === 'custom') model = document.getElementById('aiagent-custom-model').value.trim();
         if (!model) throw new Error('Choose a vision / planning model in Model settings.');
         const content = [{ type: 'text', text: `Plan a coherent image progression for a nested polyglot. Return ONLY JSON with a layers array of exactly ${layers.length} objects, each containing id (unchanged), prompt (self-contained image description) and role (short label). Keep the supplied order. Brief: ${brief}\nLayers: ${JSON.stringify(layers.map(n => ({ id: n.id, name: n.name, parent: n.parent?.id ?? null })))}` }];
