@@ -52,7 +52,8 @@ visit. **Use existing…** beside an input filters that list to compatible files
 text; image inputs can also use the existing saved carrier library. Result menus
 use the same input declarations. Replacing an occupied input requires explicit
 confirmation. Transfers preserve unrelated drafts and settings and never run a
-tool or start an AI request.
+decoding or encoding or start an AI request. Analyze automatically inspects the
+original file structure and metadata when its input changes.
 
 Ports connect image/audio Encode, Decode and Analyze; Agent Reveal, Conceal and
 context; nested image carriers and payloads; SPECTER; Text Lab; and selected
@@ -92,6 +93,29 @@ Browser regression checks: serve the repository on port 8775, start a separate
 Chrome with `--remote-debugging-port=9337` and its own `--user-data-dir`, then run
 `node tests/workflow-browser.cjs` (Node 22+). The checks replace work only in that
 isolated browser. Set `WORKFLOW_SCREENSHOTS` to an output folder to save captures.
+
+## Automatic file inspection
+
+Loading or transferring an image or audio file into Analyze immediately inspects
+the original bytes. File structure and metadata share that file and cached scan;
+there is no separate file chooser or metadata scan button. The pixel-analysis
+action remains available for channel views, transforms and statistics.
+
+Category totals and top-level group names with record counts appear together.
+Open a group to see its records, or use Expand all. Export report includes all
+collected records even when collapsed. Appended byte ranges and metadata text
+can be downloaded or sent through the shared transfer controls. Signature
+matches are leads, not verified extracted files; malformed records produce notes.
+
+`st3gg-inspection.js` parses bytes into a structured result;
+`st3gg-analysis.js` manages scan reuse, file replacement and the results tree.
+The six visual analysis sections link to articles shared by in-place help and
+the searchable [analysis knowledgebase](knowledgebase.html).
+The optional live histogram walkthrough is tracked in [TODO.md](TODO.md).
+
+Run `node tests/analysis-browser.cjs` using the same isolated browser setup above
+to check automatic loading, metadata counts, compressed text and profiles,
+container boundaries, replacement, keyboard help and the responsive tree.
 
 ## Nested polyglots browser workspace
 

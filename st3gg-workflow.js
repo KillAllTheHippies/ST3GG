@@ -58,7 +58,11 @@
             switchToAudioMode(panel);
             await (panel === 'decode' ? loadAudioForDecode(file, prepared) : panel === 'encode' ? loadAudioCarrier(file, prepared) : loadAudioForAnalyze(file, prepared));
             if (panel === 'decode') { state.decodeCanvas = null; state.decodeJpegData = null; state.decodePngData = null; state.extractedData = null; $('decode-result').classList.add('hidden'); }
-            if (panel === 'analyze') { state.analyzeCanvas = null; state.analyzeFile = file; state.currentFile = file; }
+            if (panel === 'analyze') {
+                state.analyzeCanvas = null; state.analyzeFile = file; state.currentFile = file;
+                $('channel-layers-section').classList.add('hidden');
+                state.analysisInspectionPromise = ST3GGAnalysis.inspect(file);
+            }
             return;
         }
         const request = Symbol(); loading.set(panel, request);
@@ -95,6 +99,9 @@
             } else {
                 state.analyzeAudioBuffer = null;
                 state.analyzeFile = file; state.currentFile = file; state.analyzeCanvas = canvas;
+                $('channel-layers-section').classList.add('hidden');
+                $('analyze-result').textContent = 'Image ready. Analyze to inspect pixels and channel views.';
+                state.analysisInspectionPromise = ST3GGAnalysis.inspect(file, bytes);
             }
             const previous = previewURLs.get(panel); if (previous) URL.revokeObjectURL(previous);
             previewURLs.set(panel, url);
