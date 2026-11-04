@@ -3,13 +3,15 @@
     'use strict';
     const C = PolyCore, P = PolyPayloads, textEncoder = new TextEncoder(), textDecoder = new TextDecoder();
     let api, root, selected, busy = false, error = '', progress = '', view = 'plan', reviewed = false, generated = false, workspaceStage = 'setup';
-    let sequenceLibraryOpen = false, sequenceQuery = '', previewSequence = '', zoom = 1, help = null, runTouched = false;
+    let presetOpen = false, presetQuery = '', presetGroup = 'All', previewPreset = '', zoom = 1, help = null, runTouched = false;
     let activeFile = null, activeStep = null, activeComment = null, templateId = 'layer-notes', templateTargets = new Set(), lastOutput = null, knownRoot = null;
-    let objectURLs = [], panning = null, canvasScroll = { left: 0, top: 0 }, rootBaseline = 0;
+    let objectURLs = [], canvasController = null, canvasCamera = {x:0,y:0,zoom:1,fit:true}, rootBaseline = 0;
+    const expandedContents = new Set();
+    const contentDisclosure = new Map();
     let autoFit=true, imageDialogLayer=null;
     const expanded = new Set(), fileDrafts = new WeakMap(), newFileDrafts = new Map(), templateDrafts = new Map(), instructionErrors = new Map();
     const config = { count: 3, shape: 'chain', source: 'ai', width: 1024, height: 1024, brief: '', reference: '', planModel: '', localStyle: 'texture', variables: { title: 'Layer notes', notes: 'Archive contents for this layer.' } };
-    const templates = [{ id: 'layer-notes', name: 'Layer notes', filename: 'README.md', content: '# {{title}}\nLayer {{layer.index}}: {{layer.filename}}\n{{notes}}\n' }];
+    const templates = [{id:'layer-notes',name:'Layer traversal',filename:'README.md',content:'{{layer.instructions}}\n'},{id:'agent-instructions',name:'Agent traversal',filename:'AGENTS.md',content:'{{layer.instructions}}\n'}];
     const $ = id => document.getElementById(id), uid = () => crypto.randomUUID();
     const subtree = target => { const out = [], stack = [target]; while (stack.length) { const n = stack.pop(); out.push(n); stack.push(...n.entries.filter(e => e.child).map(e => e.child).reverse()); } return out; };
     const nodes = () => subtree(root);
@@ -82,11 +84,7 @@
             if(panel){if(item.offsetTop<panel.scrollTop)panel.scrollTop=item.offsetTop;else if(item.offsetTop+item.offsetHeight>panel.scrollTop+panel.clientHeight)panel.scrollTop=item.offsetTop+item.offsetHeight-panel.clientHeight;}
         }
         const viewport = $('nw-canvas'), card = document.querySelector(`[data-layer-id="${node.id}"]`);
-        if (viewport && card) {
-            const x = parseFloat(card.style.left) * zoom, y = parseFloat(card.style.top) * zoom;
-            if (x < viewport.scrollLeft || x + 150 * zoom > viewport.scrollLeft + viewport.clientWidth) viewport.scrollLeft = Math.max(0, x - 35);
-            if (y < viewport.scrollTop || y + 170 * zoom > viewport.scrollTop + viewport.clientHeight) viewport.scrollTop = Math.max(0, y - 30);
-        }
+        if(viewport&&card)canvasController?.reveal(card);
         document.querySelector('.nw-inspector h2')?.scrollIntoView({block:'nearest',inline:'nearest'});
     }
     function mutateRun() { runTouched = true; reviewed = false; generated = false; lastOutput = null; }
@@ -110,26 +108,32 @@
         for (const [n, parent] of plans) n.parent = parent;
         config.count = count; config.shape = shape; selected = list.some(n => n.id === selected) ? selected : root.id;autoFit=true; mutateRun(); return true;
     }
-    function newRun(sequence = null, initial = false) {
-        const title = sequence ? `Load “${sequence.title}”` : 'Start a new run';
+    async function newRun(preset = null, initial = false) {
+        const title = preset ? `Load “${preset.title}”` : 'Start a new run';
         if (!initial && (runTouched || [...fileDraftsPending()].length) && !confirm(`${title} and replace the current run, including pending edits?`)) return;
+        const gallery = [];
+        if(preset?.files==='gallery')for(const name of ['landscape','tree']){const response=await fetch(`assets/polyglot/previews/${name}.png`);if(!response.ok)throw new Error('Could not load gallery images. Your current run is unchanged.');gallery.push({name:`gallery/${name}.png`,kind:'file',bytes:new Uint8Array(await response.arrayBuffer())});}
         for(const node of nodes())rememberImage(node);
-        previewSequence = sequence?.id || '';
-        const n = C.layer(sequence?.names?.[0] ? sequence.names[0] + '.png' : 'outer.png');
+        previewPreset = preset?.id || '';
+        const n = C.layer(preset?.names?.[0] ? preset.names[0] + '.png' : 'outer.png');
         api.replaceRoot(n); root = n; knownRoot = root; selected = root.id;
-        config.count = 1; config.shape = 'chain'; config.source = 'ai'; config.width = 1024; config.height = 1024; config.brief = sequence?.brief || '';config.reference='';
-        rebuildStructure(sequence?.count || 3, 'chain');
-        const list = nodes();
-        list.forEach((node, index) => {
-            if (sequence?.names?.[index]) { node.name = sequence.names[index] + '.png'; const entry = node.parent?.entries.find(e => e.child === node); if (entry) entry.name = node.name; }
-            node.role = sequence?.names?.[index] || (index ? 'Inner layer ' + index : 'Outer image');
-            if(sequence)node.previewImage=`assets/polyglot/previews/${['landscape','valley','tree','branch','leaf'][index%5]}.png`;
-            node.prompt = sequencePrompt(node, index, list.length);
-            node.variables = { title: node.role, notes: `Contents for ${node.name}.` };
-            node.settings = { method: 'none', payload: '', options: {} }; node.payloadSteps = [];
-        });
-        activeFile = null; activeStep = null; reviewed = false; generated = false; view = ''; error = ''; rootBaseline = 0; templateTargets = new Set(list.map(n => n.id)); sequenceLibraryOpen = false;
-        lastOutput = null; runTouched = false; workspaceStage='setup'; render();
+        config.count=1;config.shape=preset?.shape||'chain';config.source='ai';config.width=1024;config.height=1024;config.brief='';config.reference='';
+        rebuildStructure(preset?.count || 3, config.shape);
+        const list=nodes();
+        for(const [index,node]of list.entries()){
+            if(preset?.names?.[index]){node.name=preset.names[index]+'.png';const entry=node.parent?.entries.find(e=>e.child===node);if(entry)entry.name=node.name;}
+            node.role=index?'Inner layer '+index:'Outer image';node.prompt=sequencePrompt(node);node.variables={title:node.role,notes:''};
+            node.settings={method:'none',payload:'',options:{}};node.payloadSteps=[];
+            if(preset?.method){const step=P.create(preset.method);if(preset.filePayload){step.filePayload=new Uint8Array();step.fileName='payload.bin';}node.payloadSteps.push(step);node.imageDirty=true;if(preset.method==='F5'){node.name=node.name.replace(/\.png$/,'.jpg');const entry=node.parent?.entries.find(e=>e.child===node);if(entry)entry.name=node.name;}}
+            if(preset?.files){const agents=preset.files==='instructions';node.entries.push({name:agents?'AGENTS.md':'README.md',kind:'file',bytes:new Uint8Array(),template:{id:agents?'agent-instructions':'layer-notes',variables:{},override:false}});}
+            if(preset?.files==='basic')node.entries.push({name:'attachment.txt',kind:'file',bytes:new Uint8Array()});
+            if(preset?.files==='instructions')node.entries.push({name:'attachment.bin',kind:'file',bytes:new Uint8Array()});
+            if(preset?.files==='folders')node.entries.push({name:'documents/',kind:'folder',bytes:new Uint8Array()},{name:'documents/notes.txt',kind:'file',bytes:new Uint8Array()});
+        }
+        root.entries.push(...gallery);
+        for(const node of list)for(const entry of node.entries)if(entry.template)entry.bytes=textEncoder.encode(PolyInstructions.layer(node,P.steps(node),P.options)+'\n');
+        activeFile=null;activeStep=null;reviewed=false;generated=false;view='';error='';rootBaseline=0;templateTargets=new Set(list.map(n=>n.id));presetOpen=false;expandedContents.clear();contentDisclosure.clear();imageDialogLayer=null;
+        autoFit=true;lastOutput=null;runTouched=false;workspaceStage='setup';render();
     }
     const readyExamples = [
         {id:'message',title:'A photo with a hidden message',description:'One landscape photo, a hidden message and a README inside its ZIP.',images:['landscape'],shape:'chain',method:'LSB',brief:'A mountain landscape with a river valley.'},
@@ -171,7 +175,7 @@
             const dims=PolySize.dimensions(root.image);config.width=dims.width;config.height=dims.height;
             activeFile=null;activeStep=null;lastOutput=null;rootBaseline=0;help=null;
             templateTargets=new Set(layers.map(n=>n.id));reviewed=true;generated=true;runTouched=true;
-            sequenceLibraryOpen=false;autoFit=true;canvasScroll={left:0,top:0};workspaceStage='layers';view='review';error='';
+            expandedContents.clear();contentDisclosure.clear();presetOpen=false;autoFit=true;workspaceStage='layers';view='review';error='';
             progress=example.title+' loaded. All images and text are ready to build.';
         });
     }
@@ -372,7 +376,7 @@
         const list = nodes(), index = list.indexOf(node), scenes = config.brief.split(/\s*→\s*/).filter(Boolean);
         return { ...config.variables, ...node.variables, ...extra,
             'layer.index': index + 1, 'layer.count': list.length, 'layer.filename': node.name, 'layer.name': node.name,
-            'layer.depth': depth(node), 'layer.scene': node.scene ?? (config.brief.includes('→') ? scenes[index]||'' : config.brief),
+            'layer.instructions':PolyInstructions.layer(node,P.steps(node),P.options), 'layer.depth': depth(node), 'layer.scene': node.scene ?? (config.brief.includes('→') ? scenes[index]||'' : config.brief),
             'sequence.brief': config.brief,
             'project.name': root.name.replace(/\.[^.]+$/, '') };
     }
@@ -407,10 +411,10 @@
         progress = `${jobs.length} linked ${jobs.length === 1 ? 'file' : 'files'} updated.`; render();
     }
     function instructionText(source, step) {
-        const opts = P.options(step), lines = [`Decode ${source.name} using ${step.method}.`, 'Decoding settings:'];
-        for (const [key,value] of Object.entries(opts)) if (!/password|key|secret/i.test(key)) lines.push(`${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`);
-        lines.push(`Decoding order: step ${P.steps(source).filter(s => s.enabled !== false).indexOf(step) + 1}.`);
-        return step.instructions?.textOverride || lines.join('\n');
+        if(step.instructions?.textOverride!==undefined)return step.instructions.textOverride;
+        const route=[];for(let node=source;node;node=node.parent)route.unshift(node.name);
+        const path=route.length>1?`Reach ${JSON.stringify(source.name)} by extracting the ZIP at each image in this path: ${route.join(' → ')}.\n`:'';
+        return path+PolyInstructions.payload(source,step,P.options(step));
     }
     function removeInstructionArtifact(source, step) {
         const link = step.instructions?.installed; if (!link) return;
@@ -418,7 +422,7 @@
         if (link.stepId) { destination.payloadSteps = P.steps(destination).filter(s => s.id !== link.stepId); dirty(destination, true); }
         if (link.file) {
             const e = destination.entries.find(e => e.name === link.file), draft = e && api.textDraft(e);
-            if (draft) { const from = `<!-- ST3GG decode:${step.id} -->`, to = `<!-- /ST3GG decode:${step.id} -->`, at = draft.text.indexOf(from), end = draft.text.indexOf(to, at); if (at >= 0 && end >= 0) api.saveText(destination, e, draft.text.slice(0,at) + draft.text.slice(end + to.length)); }
+            if (draft) { const from = `<!-- payload-route:${step.id} -->`, to = `<!-- /payload-route:${step.id} -->`, at = draft.text.indexOf(from), end = draft.text.indexOf(to, at); if (at >= 0 && end >= 0) api.saveText(destination, e, draft.text.slice(0,at) + draft.text.slice(end + to.length)); }
         }
         step.instructions.installed = null;
     }
@@ -438,13 +442,13 @@
             if (existing) Object.assign(P.steps(destination).find(s => s.id === existing.id), target); else P.steps(destination).push(target);
             link.installed = { layerId: destination.id, stepId: target.id }; dirty(destination,true);
         } else {
-            const name = C.path(link.file || 'decoding.md'); if (name.endsWith('/')) throw new Error('Choose a text filename.');
+            const name = C.path(link.file || 'AGENTS.md'); if (name.endsWith('/')) throw new Error('Choose a text filename.');
             let entry = destination.entries.find(e => e.name === name);
             if (entry?.child || entry?.kind === 'folder') throw new Error('Choose an ordinary text file destination.');
             if (entry && !api.textDraft(entry)) throw new Error('The destination file is not editable UTF-8 text. Choose another file.');
             if (previous && (previous.layerId !== destination.id || previous.file !== name)) removeInstructionArtifact(source,step);
             if (!entry) { entry = { name, kind: 'file', bytes: new Uint8Array() }; destination.entries.push(entry); }
-            const draft = api.textDraft(entry), from = `<!-- ST3GG decode:${step.id} -->`, to = `<!-- /ST3GG decode:${step.id} -->`;
+            const draft = api.textDraft(entry), from = `<!-- payload-route:${step.id} -->`, to = `<!-- /payload-route:${step.id} -->`;
             const block = from + '\n' + text + '\n' + to, at = draft.text.indexOf(from), end = draft.text.indexOf(to,at);
             const value = at >= 0 && end >= 0 ? draft.text.slice(0,at) + block + draft.text.slice(end + to.length) : draft.text + (draft.text ? '\n\n' : '') + block + '\n';
             api.saveText(destination,entry,value); link.installed = { layerId: destination.id, file: name }; dirty(destination);
@@ -454,6 +458,7 @@
     async function build(download = true, target = root, zipOnly = false) {
         const scope=subtree(target),pending = [...fileDraftsPending()].filter(d=>scope.some(n=>n.id===d.nodeId)); if (pending.length) throw new Error('Save or discard the open file draft before building.');
         await api.busy(async signal => {
+            for(const node of scope)for(const entry of node.entries)if(['layer-notes','agent-instructions'].includes(entry.template?.id)&&!entry.template.override)api.saveText(node,entry,PolyInstructions.layer(node,P.steps(node),P.options)+'\n');
             const snapshot = nodes().flatMap(n => P.steps(n).map(step => ({ node:n,step })));
             for (const {node,step} of snapshot) if (step.instructions?.enabled && step.instructions.installed) applyInstructions(node,step,true);
             for (const n of scope) {
@@ -494,29 +499,19 @@
         api.saveText(node,entry,d.text); dirty(node); d.entry = entry; d.initial = d.text; d.creating = false; newFileDrafts.delete(node.id);fileDrafts.set(entry,d); progress = name + ' saved.'; render();
     }
     function helpButton(parent, method) { const b = button(parent,'?',() => { help = help === method ? null : method;if(help)expanded.add('help-'+method+'-example');render(); },'nw-help-button',`About ${PolyTechniqueHelp[method].title}`); b.setAttribute('aria-label',`Explain ${method}`); b.setAttribute('aria-expanded',String(help === method)); }
-    function drawSequences(parent) {
-        const header = row(parent,'nw-sequences-header');
-        const toggle = button(header,'Image sequences',() => {sequenceLibraryOpen=!sequenceLibraryOpen;render();});
-        toggle.prepend(icon(sequenceLibraryOpen?'chevron-down':'chevron-right'));
-        badge(toggle,String(PolySequences.length));toggle.setAttribute('aria-expanded',String(sequenceLibraryOpen));
-        if (!sequenceLibraryOpen) return;
-        field(parent,'Search image sequences',sequenceQuery,v=>{sequenceQuery=v;render();},{key:'sequence-search',live:true});
-        const list=el('div',null,'nw-sequence-list');parent.append(list);
-        const matches=PolySequences.filter(sequence=>(sequence.title+' '+sequence.description).toLowerCase().includes(sequenceQuery.toLowerCase()));
-        if(matches.length&&!matches.some(sequence=>sequence.id===previewSequence))previewSequence=matches[0].id;
-        for (const sequence of matches) {
-            const b=button(list,'',()=>{previewSequence=sequence.id;render();},sequence.id===previewSequence?'nw-sequence-selected':'');
-            image(b,`assets/polyglot/previews/${sequence.id==='zoom-out'?'leaf':sequence.id==='seasons'?'tree':'landscape'}.png`,'nw-sequence-thumbnail');
-            b.append(el('strong',sequence.title),el('span',String(sequence.count),'nw-sequence-count'));
-            b.setAttribute('aria-pressed',String(sequence.id===previewSequence));b.setAttribute('aria-label',`${sequence.title}, ${sequence.count} images`);
-        }
-        if(!matches.length)note(list,'No image sequences match this search.');
-        else {const selectedRow=list.querySelector('.nw-sequence-selected');if(selectedRow)list.scrollTop=Math.max(0,selectedRow.offsetTop-list.offsetTop-8);}
-        const preview=matches.find(sequence=>sequence.id===previewSequence)||matches[0];
-        if(preview){const detail=el('section',null,'nw-sequence-detail');detail.append(el('strong',preview.title));note(detail,preview.description);button(detail,'Use this sequence',()=>newRun(preview));parent.append(detail);}
+    function drawPresets(parent) {
+        const header=row(parent,'nw-presets-header'),toggle=button(header,'Presets',()=>{presetOpen=!presetOpen;render();});toggle.prepend(icon(presetOpen?'chevron-down':'chevron-right'));badge(toggle,String(PolyPresets.length));toggle.setAttribute('aria-expanded',String(presetOpen));
+        if(!presetOpen)return;
+        field(parent,'Search presets',presetQuery,v=>{presetQuery=v;render();},{key:'preset-search',live:true});
+        const categories=row(parent,'nw-preset-categories');categories.setAttribute('aria-label','Preset category');for(const category of ['All','Containers','Structures','Encoding']){const b=button(categories,category,()=>{presetGroup=category;render();},presetGroup===category?'active':'');b.setAttribute('aria-pressed',String(presetGroup===category));}
+        const matches=PolyPresets.filter(p=>(presetGroup==='All'||p.group===presetGroup)&&(p.title+' '+p.description).toLowerCase().includes(presetQuery.toLowerCase())),list=el('div',null,'nw-preset-list');parent.append(list);
+        if(matches.length&&!matches.some(p=>p.id===previewPreset))previewPreset=matches[0].id;
+        for(const preset of matches){const b=button(list,'',()=>{previewPreset=preset.id;render();},preset.id===previewPreset?'nw-preset-selected':'');b.append(icon(preset.method?'file-text':preset.group==='Structures'?'layers-intersect':'archive'),el('strong',preset.title),el('span',String(preset.count),'nw-preset-count'));b.setAttribute('aria-pressed',String(preset.id===previewPreset));}
+        if(!matches.length)note(list,'No presets match this search.');
+        const preview=matches.find(p=>p.id===previewPreset)||matches[0];if(preview){const detail=el('section',null,'nw-preset-detail');detail.append(el('strong',preview.title));note(detail,preview.description);button(detail,'Use this preset',()=>newRun(preview));parent.append(detail);}
     }
     function drawRun(parent) {
-        button(parent,'Ready-to-build examples',()=>{view='ready-examples';render();},'nw-examples-entry');drawSequences(parent);const runHeading=row(parent,'nw-run-heading');runHeading.append(el('h3','Run configuration'));button(runHeading,'Usage examples',()=>{view='examples';render();},'quiet');
+        button(parent,'Ready-to-build examples',()=>{view='ready-examples';render();},'nw-examples-entry');drawPresets(parent);const runHeading=row(parent,'nw-run-heading');runHeading.append(el('h3','Run configuration'));button(runHeading,'Usage examples',()=>{view='examples';render();},'quiet');
         const count=field(parent,'Total layers',nodes().length,v=>{if(rebuildStructure(validPixels(v),config.shape)) render();},{type:'number',key:'layer-count'});count.parentElement.classList.add('nw-count-field');count.min='1';
         field(parent,'Structure',config.shape,v=>{rebuildStructure(nodes().length,v);render();},{choices:[['chain','One inside the next'],['branches','Together inside the outer image'],['balanced','Split into groups'],['deep-branch','Together, with one nested further']]});
         disclosure(parent,'How this structure nests images','layout-explanation',drawLayoutDescription);
@@ -559,53 +554,82 @@
         for(const n of list.slice(0,7)){const item=el('span',`${depth(n)?'↳ ':''}${n.name}`);item.style.paddingLeft=Math.min(depth(n),4)*12+'px';listPreview.append(item);}
         if(list.length>7)listPreview.append(el('span',`+ ${list.length-7} more images`));parent.append(listPreview);
     }
+    function canvasMetrics(node) {
+        const count=P.steps(node).length+node.entries.filter(entry=>!entry.child&&entry.kind!=='folder').length;
+        const cardHeight=nodes().some(owner=>P.steps(owner).some(step=>step.instructions?.installed?.layerId===node.id))?218:190;
+        const open=count>0&&expandedContents.has(node.id);
+        return {count,cardHeight,open,addY:cardHeight+(count?(open?300:48):14),height:cardHeight+(count?(open?340:88):62)};
+    }
     function layout() {
-        const list=nodes(),positions=new Map(),slots=new Map(),occupied=new Set(),step=list.length<=3?235:174;
+        const list=nodes(),positions=new Map(),slots=new Map(),occupied=new Set(),step=list.length<=3||expandedContents.size?235:174;
+        const laneHeights=new Map();
         for(const n of list){
             const parent=n.parent&&slots.get(n.parent.id),first=n.parent?.entries.find(e=>e.child)?.child===n;
             const below=parent&&(n.canvasBelowParent||!first||config.shape==='branches');
             const column=parent?parent.column+(below?0:1):0;let lane=parent?parent.lane+(below?1:0):0;
             while(occupied.has(column+':'+lane))lane++;
-            occupied.add(column+':'+lane);slots.set(n.id,{column,lane});positions.set(n.id,{x:24+column*step,y:24+lane*280});
+            occupied.add(column+':'+lane);slots.set(n.id,{column,lane});laneHeights.set(lane,Math.max(laneHeights.get(lane)||280,canvasMetrics(n).height));
         }
-        return {list,positions,width:Math.max(260,...[...positions.values()].map(p=>p.x+196)),height:Math.max(280,...[...positions.values()].map(p=>p.y+292))};
+        const offsets=new Map();let y=24;for(let lane=0;lane<=Math.max(0,...laneHeights.keys());lane++){offsets.set(lane,y);y+=laneHeights.get(lane)||280;}
+        for(const n of list){const slot=slots.get(n.id);positions.set(n.id,{x:24+slot.column*step,y:offsets.get(slot.lane)});}
+        return {list,positions,width:Math.max(260,...[...positions.values()].map(p=>p.x+196)),height:Math.max(280,...list.map(n=>positions.get(n.id).y+canvasMetrics(n).height))};
+    }
+    function canvasContent(parent,node,title,bytes,name,edit,key,openDefault=false) {
+        const detail=el('details',null,'nw-content-item');detail.open=contentDisclosure.has(key)?contentDisclosure.get(key):openDefault;detail.ontoggle=()=>{if(detail.isConnected)contentDisclosure.set(key,detail.open);};
+        detail.append(el('summary',title));parent.append(detail);
+        const value=ST3GGWorkflow.fromBytes(bytes,name,'Layer contents');
+        if(value.blob.type.startsWith('image/'))image(detail,bytes,'nw-content-image');
+        else if(value.kind==='text')detail.append(el('pre',value.text.slice(0,1200)+(value.text.length>1200?'\n…':''),'nw-content-text'));
+        else detail.append(el('p',`${PolySize.format(bytes.length)} · ${Array.from(bytes.slice(0,16),b=>b.toString(16).padStart(2,'0')).join(' ')}`,'nw-note'));
+        const actions=row(detail);button(actions,'Edit',edit,'quiet');button(actions,'Download',()=>ST3GGTransfers.download(value),'quiet');
+    }
+    function drawCanvasContents(stage,node,p,metrics) {
+        if(!metrics.count)return;
+        const toggle=button(stage,`Contents · ${metrics.count}`,()=>{if(expandedContents.has(node.id))expandedContents.delete(node.id);else expandedContents.add(node.id);autoFit=false;render();const panel=$('nw-contents-'+node.id);if(panel)canvasController.reveal(panel);document.querySelector(`[data-contents-toggle="${node.id}"]`)?.focus({preventScroll:true});},'nw-contents-toggle');
+        toggle.dataset.contentsToggle=node.id;toggle.setAttribute('aria-expanded',String(metrics.open));toggle.setAttribute('aria-controls','nw-contents-'+node.id);toggle.style.left=p.x-16+'px';toggle.style.top=p.y+metrics.cardHeight+8+'px';
+        if(!metrics.open)return;
+        const preview=el('section',null,'nw-contents-preview');preview.id='nw-contents-'+node.id;preview.dataset.canvasInteractive='true';preview.style.left=p.x-16+'px';preview.style.top=p.y+metrics.cardHeight+46+'px';stage.append(preview);
+        const steps=P.steps(node);if(steps.length)preview.append(el('h4','Image payloads'));
+        for(const step of steps){const name=step.fileName||'message.txt';canvasContent(preview,node,`${step.method} · ${step.fileName||'text'}${step.enabled===false?' · disabled':''}`,P.data(step),name,()=>{selected=node.id;activeStep=step.id;view='payload';render();},'canvas-step-'+step.id,step===steps[0]);}
+        const files=node.entries.filter(entry=>!entry.child&&entry.kind!=='folder');if(files.length)preview.append(el('h4','ZIP files'));
+        for(const entry of files){const draft=fileDrafts.get(entry),bytes=draft&&!draft.binary?textEncoder.encode(draft.text):entry.bytes;if(bytes)canvasContent(preview,node,entry.name,bytes,entry.name,()=>{selected=node.id;editFile(node,entry);render();},'canvas-file-'+node.id+'-'+entry.name);else preview.append(el('p',entry.name+' · preserved entry','nw-note'));}
     }
     function drawCanvas(parent) {
+        canvasController?.destroy();
         const toolbar=row(parent,'nw-canvas-title');toolbar.append(el('h3','Layers'));badge(toolbar,'Image + ZIP');
-        if(nodes().some(n=>!n.image&&n.previewImage))note(toolbar,'Sequence preview · images not generated','nw-preview-caption');
+
         const viewport=el('div',null,'nw-canvas-viewport');viewport.id='nw-canvas';parent.append(viewport);
-        const graph=layout(),availableWidth=viewport.clientWidth||760,availableHeight=viewport.clientHeight||550;
-        if(autoFit)zoom=Math.min(1,(availableWidth-36)/graph.width,(availableHeight-36)/graph.height);
-        const stageWidth=Math.max(graph.width,availableWidth/zoom),stageHeight=Math.max(graph.height,availableHeight/zoom);
-        const offsetX=(stageWidth-graph.width)/2,offsetY=(stageHeight-graph.height)/2;
-        const positions=new Map([...graph.positions].map(([id,p])=>[id,{x:p.x+offsetX,y:p.y+offsetY}]));
-        const stage=el('div',null,'nw-canvas-stage');stage.style.width=stageWidth+'px';stage.style.height=stageHeight+'px';stage.style.transform=`scale(${zoom})`;stage.style.transformOrigin='0 0';
-        const sizer=el('div');sizer.style.width=stageWidth*zoom+'px';sizer.style.height=stageHeight*zoom+'px';sizer.append(stage);viewport.append(sizer);
+        const graph=layout(),stageWidth=graph.width,stageHeight=graph.height,positions=graph.positions;
+        const stage=el('div',null,'nw-canvas-stage');stage.style.width=stageWidth+'px';stage.style.height=stageHeight+'px';stage.style.transformOrigin='0 0';viewport.append(stage);
         const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');svg.setAttribute('width',stageWidth);svg.setAttribute('height',stageHeight);svg.classList.add('nw-edges');stage.append(svg);
         const defs=document.createElementNS(ns,'defs'),marker=document.createElementNS(ns,'marker');marker.id='nw-edge-arrow';marker.setAttribute('viewBox','0 0 8 8');marker.setAttribute('refX','7');marker.setAttribute('refY','4');marker.setAttribute('markerWidth','7');marker.setAttribute('markerHeight','7');marker.setAttribute('orient','auto');const arrow=document.createElementNS(ns,'path');arrow.setAttribute('d','M1 1 L7 4 L1 7');arrow.setAttribute('fill','none');arrow.setAttribute('stroke','#d1dae2');marker.append(arrow);defs.append(marker);svg.append(defs);
         const next=nextMissingImage(current()),instructionTargets=new Set(graph.list.flatMap(n=>P.steps(n).filter(s=>s.instructions?.installed).map(s=>s.instructions.installed.layerId)));
         for(const n of graph.list)if(n.parent){const a=positions.get(n.parent.id),b=positions.get(n.id),path=document.createElementNS(ns,'path'),below=a.x===b.x;
-            const bottom=instructionTargets.has(n.parent.id)?218:190;
+            const bottom=canvasMetrics(n.parent).cardHeight;
             path.setAttribute('d',below?`M${a.x},${a.y+bottom-14} H${a.x-15} V${b.y+75} H${b.x-5}`:`M${a.x+126},${a.y+88} C${a.x+151},${a.y+88} ${b.x-26},${b.y+88} ${b.x-7},${b.y+88}`);path.setAttribute('class','nw-edge');path.setAttribute('marker-end','url(#nw-edge-arrow)');svg.append(path);if(!below){const label=document.createElementNS(ns,'text');label.setAttribute('x',(a.x+126+b.x)/2);label.setAttribute('y',(a.y+b.y)/2+70);label.setAttribute('text-anchor','middle');label.textContent='contains';svg.append(label);}}
         for(const n of graph.list){
             const p=positions.get(n.id),card=el('div',null,'nw-node'+(n.id===selected?' selected':'')+(next===n&&current().image?' nw-next-layer':''));stage.append(card);card.setAttribute('role','button');card.tabIndex=0;card.setAttribute('aria-label','Select '+n.name);card.onclick=()=>{if(!busy)select(n);};card.onkeydown=e=>{if(e.target===card&&(e.key==='Enter'||e.key===' ')){e.preventDefault();if(!busy)select(n);}};card.dataset.layerId=n.id;card.style.left=p.x+'px';card.style.top=p.y+'px';
-            image(card,n.image||n.previewImage,'nw-node-image');card.append(el('strong',n.name));
+            image(card,n.image,'nw-node-image');card.append(el('strong',n.name));
             const dims=PolySize.dimensions(n.image);card.append(el('small',dims?`${dims.width} × ${dims.height}`:'Image + ZIP'));
             if(n.image)card.append(el('small',PolySize.format(n.image.length)));
             if(n.image)badge(card,n.dirty?'Ready':'Built','good');
             else{const needs=button(card,'Needs image',()=>{selected=n.id;imageDialogLayer=n.id;render();},'nw-needs-image');needs.setAttribute('aria-label','Choose or create image for '+n.name);needs.addEventListener('click',e=>e.stopPropagation());}
             if(instructionTargets.has(n.id))badge(card,'Instructions stored here','instructions');
             if(instructionTargets.has(n.id))card.style.height='218px';
-            const add=button(stage,'Nest image',()=>addChild(n),'nw-add-child'+(n.id===selected?' selected':'')),circle=el('span',null,'nw-add-circle');circle.append(icon('plus'));add.prepend(circle);add.style.left=p.x+48+'px';add.style.top=p.y+(instructionTargets.has(n.id)?232:204)+'px';add.title='Add a nested image inside '+n.name;
+            const metrics=canvasMetrics(n);drawCanvasContents(stage,n,p,metrics);
+            const add=button(stage,'Nest image',()=>addChild(n),'nw-add-child'+(n.id===selected?' selected':'')),circle=el('span',null,'nw-add-circle');circle.append(icon('plus'));add.prepend(circle);add.style.left=p.x+48+'px';add.style.top=p.y+metrics.addY+'px';add.title='Add a nested image inside '+n.name;
         }
         for(const source of graph.list)for(const step of P.steps(source))if(step.instructions?.installed){const target=graph.list.find(n=>n.id===step.instructions.installed.layerId);if(target&&target!==source){const a=positions.get(source.id),b=positions.get(target.id),path=document.createElementNS(ns,'path');path.setAttribute('d',`M${a.x+60},${a.y+181} Q${(a.x+b.x)/2},${Math.max(a.y,b.y)+270} ${b.x+60},${b.y+181}`);path.setAttribute('class','nw-instruction-edge');svg.append(path);}}
-        const zooms=row(parent,'nw-zoom');button(zooms,'−',()=>{autoFit=false;zoom=Math.max(.05,zoom-.1);render();});badge(zooms,Math.round(zoom*100)+'%');button(zooms,'+',()=>{autoFit=false;zoom+=.1;render();});button(zooms,'Fit',()=>{autoFit=true;canvasScroll={left:0,top:0};render();});
-        viewport.addEventListener('scroll',()=>{canvasScroll={left:viewport.scrollLeft,top:viewport.scrollTop};});viewport.scrollLeft=canvasScroll.left;viewport.scrollTop=canvasScroll.top;
-        viewport.onpointerdown=e=>{if(e.target.closest('button,[role="button"]'))return;panning={x:e.clientX,y:e.clientY,left:viewport.scrollLeft,top:viewport.scrollTop};viewport.setPointerCapture(e.pointerId);};
-        viewport.onpointermove=e=>{if(panning){viewport.scrollLeft=panning.left+panning.x-e.clientX;viewport.scrollTop=panning.top+panning.y-e.clientY;}};viewport.onpointerup=()=>{panning=null;};viewport.onpointercancel=()=>{panning=null;};
+        const zooms=row(parent,'nw-zoom');button(zooms,'−',()=>canvasController.zoomBy(1/1.15));const zoomLabel=badge(zooms,Math.round(zoom*100)+'%');button(zooms,'+',()=>canvasController.zoomBy(1.15));button(zooms,'Fit',()=>canvasController.fit());
+        canvasController=PolyCanvas.attach({viewport,stage,width:graph.width,height:graph.height,camera:canvasCamera,fit:autoFit,onChange:camera=>{zoom=camera.zoom;autoFit=camera.fit;},onZoom:value=>{zoomLabel.textContent=Math.round(value*100)+'%';}});
     }
     function drawPrompt(parent,node) {
         const section=el('div',null,'nw-prompt-editor');parent.append(section);
+        disclosure(section,'Image prompt ideas','image-prompt-ideas',body=>{
+            note(body,'Optional scene descriptions. Existing images, structure and payloads are retained.');
+            let idea=PolySequences[0].id;field(body,'Progression',idea,value=>{idea=value;},{key:'prompt-idea',choices:PolySequences.map(s=>[s.id,s.title])});
+            button(body,'Use these scene prompts',()=>{const sequence=PolySequences.find(s=>s.id===idea),scenes=sequence.brief.split('→').map(s=>s.trim());config.brief=sequence.brief;for(const [index,layer]of nodes().entries()){layer.scene=scenes[index]||'';layer.prompt=sequencePrompt(layer);layer.promptCustom=false;}runTouched=true;progress=`Applied scene prompts to ${Math.min(scenes.length,nodes().length)} layers. Layer count is unchanged.`;render();});
+        });
         const usesDescription=/\{\{\s*layer.scene\s*\}\}/.test(node.prompt||sequencePrompt(node));
         field(section,usesDescription?'Image prompt':'Image model prompt',usesDescription?resolvedVars(node)['layer.scene']:node.prompt,v=>{if(usesDescription){node.scene=v;runTouched=true;}else updatePrompt(node,v);updatePreview();},{area:true,key:'scene-'+node.id,live:true,placeholder:'Describe the subject, composition and visual style for this image.'});
         if(node.scene!==undefined)button(section,'Use shared image description',()=>{delete node.scene;render();},'quiet');
@@ -665,7 +689,7 @@
         const compactImage=['templates','instructions','results','review','size'].includes(view),imageParent=el('div',null,'nw-inspector-image-section');if(view!=='payload')parent.append(imageParent);
         const imageHeading=el('h3','Image');imageHeading.id=`nw-image-${node.id}`;imageParent.append(imageHeading);
         const summary=el('div',null,'nw-image-summary');imageParent.append(summary);const preview=el('div',null,'nw-image-preview'),fields=el('div',null,'nw-image-fields');summary.append(preview,fields);
-        image(preview,node.image||node.previewImage,'nw-inspector-image');
+        image(preview,node.image,'nw-inspector-image');
         field(fields,'Filename',node.nameDraft||node.name,v=>{node.nameDraft=v;rename(node,v);render();},{key:'filename-'+node.id});
         const sourceNames={local:'Local carrier',upload:'Image file',ai:'AI sequence'};
         field(fields,'Image source',node.imageSource||'',v=>{node.imageSource=v||null;runTouched=true;render();},{choices:[['',`Use run default (${sourceNames[config.source]})`],['local','Create locally'],['upload','Use an image file'],['ai','Generate with AI']]});
@@ -691,9 +715,9 @@
         if(rule.ordered)note(parent,'Encoding order: pixel steps, then PNG metadata. Step numbering sets the documented decoding order.');
         for(const [i,step]of list.entries()){
             const card=el('div',null,'nw-payload-card'+(activeStep===step.id?' selected':''));parent.append(card);const header=row(card);header.append(icon('grip-vertical'),el('span',String(i+1),'nw-step-number'));button(header,step.method,()=>{activeStep=step.id;view='payload';render();});helpButton(header,step.method);
-            if(step.fileName)header.append(el('span',step.fileName,'nw-payload-filename'));else if(step.linkedInstructions)header.append(el('span','Decoding instructions','nw-payload-filename'));
+            if(step.fileName)header.append(el('span',step.fileName,'nw-payload-filename'));else if(step.linkedInstructions)header.append(el('span','Agent instructions','nw-payload-filename'));
             if(step.status==='Verified')badge(header,'Verified','good');
-            const actions=row(card,'nw-payload-actions');button(actions,'Edit',()=>{activeStep=step.id;view='payload';render();});button(actions,'Instructions…',()=>{activeStep=step.id;view='instructions';if(!step.instructions)step.instructions={enabled:false,layerId:node.id,kind:'file',file:'decoding.md',method:'PNGCHUNK',options:{}};render();});
+            const actions=row(card,'nw-payload-actions');button(actions,'Edit',()=>{activeStep=step.id;view='payload';render();});button(actions,'Instructions…',()=>{activeStep=step.id;view='instructions';if(!step.instructions)step.instructions={enabled:false,layerId:node.id,kind:'file',file:'AGENTS.md',method:'PNGCHUNK',options:{}};render();});
             if(node.uiLevel==='Expert'&&list.length>1){button(actions,'↑',()=>{if(i){[list[i-1],list[i]]=[list[i],list[i-1]];dirty(node,true);render();}});button(actions,'↓',()=>{if(i<list.length-1){[list[i+1],list[i]]=[list[i],list[i+1]];dirty(node,true);render();}});}
             button(actions,'Remove',()=>{if(step.instructions?.installed)removeInstructionArtifact(node,step);if(step.linkedInstructions){for(const owner of nodes())for(const s of P.steps(owner))if(s.instructions?.installed?.stepId===step.id){s.instructions.enabled=false;s.instructions.installed=null;}}node.payloadSteps=list.filter(s=>s!==step);dirty(node,true);activeStep=null;render();},'quiet');
         }
@@ -713,8 +737,8 @@
         });
         if(view==='instructions'){
             const source=list.find(s=>s.id===activeStep),link=source?.instructions;
-            if(link){parent.append(el('h3','Decoding instructions'));
-                const enabled=el('label',null,'nw-check'),box=el('input');box.type='checkbox';box.checked=link.enabled;box.onchange=()=>{if(!box.checked)removeInstructionArtifact(node,source);link.enabled=box.checked;render();};enabled.append(box,el('span','Include decoding instructions'));parent.append(enabled);
+            if(link){parent.append(el('h3','Agent instructions'));
+                const enabled=el('label',null,'nw-check'),box=el('input');box.type='checkbox';box.checked=link.enabled;box.onchange=()=>{if(!box.checked)removeInstructionArtifact(node,source);link.enabled=box.checked;render();};enabled.append(box,el('span','Include agent instructions'));parent.append(enabled);
                 const destination=nodes().find(n=>n.id===link.layerId);if(destination)note(parent,'Destination: '+destination.name);
             }
         }
@@ -757,14 +781,14 @@
         const step=P.steps(node).find(s=>s.id===activeStep);if(!step)return note(parent,'Select a payload technique in the layer inspector.');
         parent.append(el('h3',`${step.method} payload settings`));
         const grid=el('div',null,'nw-payload-editor-grid'),settings=el('div'),payload=el('div');grid.append(settings,payload);parent.append(grid);
-        const identity=row(settings,'nw-payload-identity');image(identity,node.image||node.previewImage,'nw-payload-carrier');const label=el('div');label.append(el('strong',step.fileName||`${node.name} payload`));note(label,step.fileName?PolySize.format(step.filePayload.length):'Text or file payload');identity.append(label);
+        const identity=row(settings,'nw-payload-identity');image(identity,node.image,'nw-payload-carrier');const label=el('div');label.append(el('strong',step.fileName||`${node.name} payload`));note(label,step.fileName?PolySize.format(step.filePayload.length):'Text or file payload');identity.append(label);
         const options=el('div',null,'nw-payload-options');settings.append(options);
         drawOptions(options,step,()=>{const check=P.rules(P.steps(node));if(!check.ok)throw new Error(check.conflicts[0].reason);dirty(node,true);render();},node.uiLevel||'Easy');
-        if(step.linkedInstructions)note(payload,'Linked decoding instructions. Edit their source step to update this payload.');
+        if(step.linkedInstructions)note(payload,'Linked agent instructions. Edit their source step to update this payload.');
         field(payload,'Payload data (text)',step.payload||'',v=>{step.payload=v;step.filePayload=null;step.fileName='';dirty(node,true);count.textContent=`${textEncoder.encode(v).length} bytes · UTF-8`;},{area:true,key:'payload-'+step.id,live:true,disabled:!!step.linkedInstructions});
         const count=note(payload,`${P.data(step).length} bytes · UTF-8`,'nw-payload-byte-count');
         const actions=row(settings);if(!step.linkedInstructions)button(actions,'Choose file payload…',async()=>{const[f]=await pick();if(f){step.filePayload=await api.bytesOf(f);step.fileName=f.name;dirty(node,true);render();}});
-        button(actions,'Decoding instructions…',()=>{if(!step.instructions)step.instructions={enabled:false,layerId:node.id,kind:'file',file:'decoding.md',method:'PNGCHUNK',options:{}};view='instructions';render();},'quiet');
+        button(actions,'Agent instructions…',()=>{if(!step.instructions)step.instructions={enabled:false,layerId:node.id,kind:'file',file:'AGENTS.md',method:'PNGCHUNK',options:{}};view='instructions';render();},'quiet');
         disclosure(parent,'Payload capacity','capacity-'+step.id,body=>note(body,capacityText(node,step)));
     }
     function drawDecode(parent,node) {
@@ -899,8 +923,8 @@
     }
     function drawInstructions(parent,node) {
         const step=P.steps(node).find(s=>s.id===activeStep);if(!step)return;
-        const link=step.instructions||(step.instructions={enabled:false,layerId:node.id,kind:'file',file:'decoding.md',method:'PNGCHUNK',options:{}});
-        parent.append(el('h3',`Decoding instructions / ${node.name} / ${step.method}`));
+        const link=step.instructions||(step.instructions={enabled:false,layerId:node.id,kind:'file',file:'AGENTS.md',method:'PNGCHUNK',options:{}});
+        parent.append(el('h3',`Agent instructions / ${node.name} / ${step.method}`));
         const grid=el('div',null,'nw-instruction-grid');parent.append(grid);let encodingSettings=null;
         const sources=nodes().flatMap(n=>P.steps(n).filter(s=>!s.linkedInstructions).map(s=>({node:n,step:s})));
         field(grid,'Source',`${node.id}:${step.id}`,value=>{const source=sources.find(s=>`${s.node.id}:${s.step.id}`===value);if(source){selected=source.node.id;activeStep=source.step.id;render();}},{choices:sources.map(s=>[`${s.node.id}:${s.step.id}`,`${s.step.method} in ${s.node.name}`])});
@@ -916,7 +940,7 @@
             const target=nodes().find(n=>n.id===link.layerId);if(target){const check=P.rules([...P.steps(target).filter(s=>s.id!==link.installed?.stepId),candidate]);badge(parent,check.ok?'Compatible':'Conflict',check.ok?'good':'bad');if(!check.ok)note(parent,check.conflicts[0].reason,'bad');}
         }
         const preview=el('div',null,'nw-instruction-preview');parent.append(preview);
-        field(preview,'Instruction text preview',instructionText(node,step),v=>{link.textOverride=v;},{area:true,key:'instruction-text',live:true});
+        field(preview,'Receiving agent instructions',instructionText(node,step),v=>{link.textOverride=v;},{area:true,key:'instruction-text',live:true});
         button(preview,link.installed?'Update linked instructions':link.kind==='payload'?'Add instruction payload':'Write instruction section',()=>{link.enabled=true;applyInstructions(node,step);},'primary');
         const extra=row(parent);button(extra,'Use generated wording',()=>{delete link.textOverride;render();},'quiet');
         if(encodingSettings)disclosure(parent,'Destination encoding settings','instruction-options-'+step.id,encodingSettings);
@@ -983,7 +1007,7 @@
         const header=el('header',null,'nw-header');frame.append(header);
         button(header,'New run',()=>newRun(),'quiet','New nested image run');
         const stages=el('details',null,'nw-phase-menu'),phase=el('summary');stages.append(phase);header.append(stages);
-        const title=view==='ready-examples'?'Choose a ready-to-build example':view==='review'?'Ready to build':view==='results'?'08 · Download the completed file':view==='instructions'?'07 · Choose where instructions are stored':view==='templates'?'06 · Create a linked file template':view==='payload'?'05 · Configure payload techniques':view==='previews'?'04 · Refine generated images':view==='plan'?'03 · Review the image sequence':sequenceLibraryOpen?'02 · Choose an image sequence':'01 · Configure a run';
+        const title=view==='ready-examples'?'Choose a ready-to-build example':view==='review'?'Ready to build':view==='results'?'08 · Download the completed file':view==='instructions'?'07 · Choose where instructions are stored':view==='templates'?'06 · Create a linked file template':view==='payload'?'05 · Configure payload techniques':view==='previews'?'04 · Refine generated images':view==='plan'?'03 · Review the image sequence':presetOpen?'02 · Choose a preset':'01 · Configure a run';
         phase.append(el('span',title),icon('chevron-down'));const stageMenu=el('div',null,'nw-menu-items');stages.append(stageMenu);
         for(const[label,run]of[
             ['Run configuration',()=>{view='';workspaceStage='setup';render();}],
@@ -1002,7 +1026,7 @@
         const gallery=el('div',null,'nw-preview-gallery');parent.append(gallery);
         for(const node of nodes()){
             const tile=el('article',null,'nw-preview-tile'+(node.id===selected?' selected':''));gallery.append(tile);
-            const choose=button(tile,'',()=>select(node),'nw-preview-choose');image(choose,node.image||node.previewImage,'nw-gallery-image');choose.append(el('strong',node.name));
+            const choose=button(tile,'',()=>select(node),'nw-preview-choose');image(choose,node.image,'nw-gallery-image');choose.append(el('strong',node.name));
             const dims=PolySize.dimensions(node.image);if(dims)note(tile,`${dims.width} × ${dims.height}\n${PolySize.format(node.image.length)}`);else note(tile,'Image not generated');
             button(tile,node.image?'Regenerate':'Create image',imageAction(node).run);
         }
@@ -1070,10 +1094,11 @@
     }
     document.addEventListener('st3gg-openrouter-key-change',()=>refreshNextAction());
     window.PolyFlow={
-        init(bridge){api=bridge;root=api.getRoot();knownRoot=root;selected=root.id;if(!root.image&&!root.entries.length)newRun(null,true);document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(help){help=null;render();}else if(view){view='';render();}}});document.addEventListener('click',e=>{for(const menu of document.querySelectorAll('.nw-file-menu[open],.nw-phase-menu[open]'))if(!menu.contains(e.target))menu.open=false;});window.addEventListener('resize',()=>{autoFit=true;render();});document.querySelector('.tabs [data-tab="polyglot"]')?.addEventListener('click',()=>requestAnimationFrame(()=>{autoFit=true;render();}));},
+        init(bridge){api=bridge;root=api.getRoot();knownRoot=root;selected=root.id;if(!root.image&&!root.entries.length)newRun(null,true);document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(help){help=null;render();}else if(view){view='';render();}}});document.addEventListener('click',e=>{for(const menu of document.querySelectorAll('.nw-file-menu[open],.nw-phase-menu[open]'))if(!menu.contains(e.target))menu.open=false;});window.addEventListener('resize',()=>render());document.querySelector('.tabs [data-tab="polyglot"]')?.addEventListener('click',()=>requestAnimationFrame(()=>{autoFit=true;render();}));},
         render,error(message){error=message;render();},status(message){progress=message;if(busy||message)render();},setBusy(value){busy=value;if(value){error='';progress='';}render();},
-        projectLoaded(){if(!api)return;for(const node of nodes())rememberImage(node);root=api.getRoot();knownRoot=root;for(const node of nodes())rememberImage(node);selected=root.id;generated=nodes().every(n=>n.image);reviewed=true;view='plan';activeFile=null;activeStep=null;lastOutput=null;config.count=nodes().length;config.source='upload';runTouched=true;render();},
+        projectLoaded(){if(!api)return;expandedContents.clear();contentDisclosure.clear();for(const node of nodes())rememberImage(node);root=api.getRoot();knownRoot=root;for(const node of nodes())rememberImage(node);selected=root.id;generated=nodes().every(n=>n.image);reviewed=true;view='plan';activeFile=null;activeStep=null;lastOutput=null;config.count=nodes().length;config.source='upload';runTouched=true;render();},
         workflow: {
+            instructions:()=>PolyInstructions.layer(current(),P.steps(current()),P.options),
             build:()=>build(false),
             hasCarrier:()=>!!current().image,
             hasPayload:()=>P.steps(current()).some(step=>!!step.payload||!!step.filePayload),

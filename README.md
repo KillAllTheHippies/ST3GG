@@ -126,16 +126,25 @@ arrive within 800 ms of the previous one, matching the existing corner Easter eg
 The bottom-right unlock-all corner also reveals it. Choose **Deactivate mode**
 to hide the tab again; the current run remains in the tab until reload. The old
 `#polyglot` fragment does not bypass the unlock. The interface uses a
-collapsible image sequence library, run configuration, a pan/zoom containment canvas and
-a selected-layer inspector. The 12 image sequences supply composed scene progressions. Layer counts, branching,
-encoding methods, files and editing use the normal workspace controls.
+collapsible preset library, run configuration, a pan/zoom containment canvas and
+a selected-layer inspector. The 21 presets prepare useful container, structure and encoding configurations.
+The three editing-action presets are omitted. Twelve scene progressions remain as
+optional prompt ideas inside image settings; they do not replace layers, select
+carrier artwork or alter payloads. Ungenerated carriers use empty image slots.
 
 The workspace keeps the app's dark surfaces and monospace type, with a gold,
 champagne and amethyst palette over aubergine panels.
 The shared banner and horizontal navigation stay visible above the workspace.
 The unlocked tab uses the gold mode styling. Independently scrolling sidebars and contextual
 editors sit around the layer canvas; **New run** starts a fresh nested-image run.
-Local font, icon and sequence-preview sources are recorded in
+Drag the canvas background to pan freely; middle-drag or Space-drag also works.
+The mouse wheel zooms around the cursor, while Fit restores an overview. The
+canvas supports keyboard +, -, and 0 for zoom and fit. **Contents** expands each
+layer's image payloads and ZIP files directly beneath it, retaining the current
+zoom and providing text/image previews and edit/download actions. Scrolling over
+an expanded contents panel scrolls that panel; Ctrl-wheel still zooms the canvas.
+
+Local font, icon and example-image sources are recorded in
 [`assets/polyglot/SOURCES.md`](assets/polyglot/SOURCES.md).
 
 The flow is **Configure a layer → Create or choose its image → Continue to the next
@@ -183,10 +192,12 @@ Project defaults can be overridden per layer. Rendered previews update during
 editing; **Update linked files** writes the generated files. Manual file edits
 become overrides. Existing files require explicit confirmation before replacement.
 
-Every payload step can link decoding instructions to any layer, as an archive text
-section or another compatible encoded payload. Instruction text records method,
-settings and decoding order. Linked sections preserve surrounding file contents.
-Instruction files are archive contents and are never executed by the application.
+Every payload step can link concise receiving-agent instructions to any layer,
+as an archive text file or as a separate encoded payload. Generated wording names
+the source image, nested path, encoding parameters and recovered text/file type;
+it does not assume access to this interface. Traversal templates in README.md or
+AGENTS.md identify actual child images and attachments. Their generated content
+updates at build time while explicit file overrides are retained.
 
 **Archive comment · ZIP** in the payload-technique menu edits the ZIP comment
 inside the selected image (also available under **Add technique** when image
