@@ -15,4 +15,6 @@
 .agent-model-option small{display:block;font-size:10px;opacity:.65;overflow-wrap:anywhere;margin-top:3px}
 .agent-model-option:hover,.agent-model-option[aria-selected=true],.agent-model-custom:hover{background:var(--bg-hover);color:var(--primary)}
 .agent-model-name{font-size:12px;overflow-wrap:anywhere}
+.agent-model-option{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 16px}.agent-model-option small{grid-column:1;grid-row:2}.agent-model-price{grid-column:2;grid-row:1 / span 2;align-self:center;font-size:11px;color:#b8c7d4;white-space:normal;max-width:260px}
+@media(max-width:650px){.agent-model-option{grid-template-columns:minmax(0,1fr)}.agent-model-price{grid-column:1;grid-row:3;max-width:none}}
 .agent-model-custom{font-size:11px;color:var(--secondary);border-top:1px solid var(--border)}

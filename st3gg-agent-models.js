@@ -67,6 +67,7 @@
             option.dataset.modelId = model.id;
             option.tabIndex = -1; option.setAttribute('role', 'option'); option.setAttribute('aria-selected', 'false');
             option.append(node('span', model.name, 'agent-model-name'), node('small', model.id));
+            option.append(node('span', ST3GGModelPricing.describe(model), 'agent-model-price'));
             option.onmousedown = e => e.preventDefault(); option.onclick = () => choose(model.id); host.append(option);
             }
         }
@@ -91,7 +92,7 @@
             if (!response.ok) throw new Error('Model catalog request failed');
             const data = await response.json();
             if (!Array.isArray(data.data)) throw new Error('Invalid model catalog');
-            catalog = data.data.filter(m => typeof m.id === 'string' && (m.architecture?.output_modalities || ['text']).includes('text')).map(m => ({ id: m.id, name: m.name || m.id }));
+            catalog = data.data.filter(m => typeof m.id === 'string' && (m.architecture?.output_modalities || ['text']).includes('text')).map(m => ({ id: m.id, name: m.name || m.id, pricing: m.pricing }));
             fetched = true; lastFetch = Date.now();
         } catch { problem = 'Could not refresh models. Enter a model ID or use Refresh to retry.'; }
         finally { loading = false; refresh.disabled = false; draw(); }

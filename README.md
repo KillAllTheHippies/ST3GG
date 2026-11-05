@@ -127,6 +127,22 @@ The remaining catalog follows, loading more entries as you scroll. All groups
 filter while typing; usage counts and the selected model are saved in this browser.
 The refresh control retries catalog discovery without changing the current selection.
 
+Analysis, image and planning model choices show separate input and output rates
+in USD per million tokens, using the live catalog's pricing fields. Missing rates
+remain unavailable rather than being treated as zero. The shared formatter is
+`st3gg-model-pricing.js`; units follow the
+[OpenRouter model schema](https://openrouter.ai/docs/guides/overview/models).
+
+Ready-to-build examples generate each layer's README from its enclosed images,
+attachments and payload settings. These instructions address a receiving agent
+without referring to the application or asking it to reopen an ancestor image.
+The file editor's **Save to [image] ZIP** action updates that layer's archive;
+Build and download exports the updated image. Manual file overrides are preserved.
+
+`node tests/feedback-browser.cjs` checks pricing with a deterministic catalog
+fixture, keyboard selection, narrow-screen layout, per-layer guidance after build
+and reopen, and editor save destinations using the isolated browser setup above.
+
 ### Connect OpenRouter
 
 Choose **Connect OpenRouter** in **Configuration**. Authorize ST3GG in the separate window; the app exchanges the returned

@@ -16,14 +16,14 @@
     }
     function layer(node, steps, getOptions) {
         const children = node.entries.filter(entry => entry.child), files = node.entries.filter(entry => !entry.child && entry.kind !== 'folder' && !/^(?:AGENTS|README)\.md$|^instructions\.txt$/i.test(entry.name));
-        const lines = [`Treat ${quoted(node.name)} as an image followed by a ZIP archive. Extract the ZIP without re-saving the image.`];
+        const lines = [];
         for (const entry of children) {
             const next = entry.child.entries.find(e => /^(?:AGENTS|README)\.md$|^instructions\.txt$/i.test(e.name));
-            lines.push(`Continue with ${quoted(entry.name)} from this ZIP: extract its archive${next ? ` and read ${quoted(next.name)}` : ' and inspect its contents'}.`);
+            lines.push(`Treat ${quoted(entry.name)}, enclosed in this archive, as both an image and a ZIP archive. Extract its ZIP without re-saving the image${next ? ` and read ${quoted(next.name)} inside for the next step` : ' and inspect its contents'}.`);
         }
         for (const step of steps.filter(step => step.enabled !== false && !step.linkedInstructions)) lines.push(payload(node, step, getOptions(step)));
         if (files.length) lines.push(`Inspect ${files.map(entry => quoted(entry.name)).join(', ')} from this ZIP as ${files.length === 1 ? 'the attached file' : 'separate attachments'}.`);
-        if (!children.length && !steps.some(step => step.enabled !== false) && !files.length) lines.push('This is the final layer; no further payload is configured.');
+        if (!children.length && !steps.some(step => step.enabled !== false) && !files.length) lines.push('This is the final layer; no further images or payloads are included.');
         return lines.join('\n');
     }
     window.PolyInstructions = Object.freeze({ payload, layer });

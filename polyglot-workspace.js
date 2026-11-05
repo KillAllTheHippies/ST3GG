@@ -156,7 +156,7 @@
                 node.role=name;node.scene=`A detailed photograph of a ${name}.`;node.prompt=node.scene;
                 node.variables={title:name,notes:`This is the ${name} image in the ${example.title} example.`};
                 node.settings={method:'none',payload:'',options:{}};node.payloadSteps=[];
-                node.entries.push({name:'README.md',kind:'file',bytes:textEncoder.encode(`# ${name}\n\n${example.description}\n\nThis image and all example text are already supplied. Build and download the outer image, then open it as a ZIP to explore its files.\n`)});
+                node.entries.push({name:'README.md',kind:'file',bytes:new Uint8Array(),template:{id:'layer-notes',variables:{},override:false}});
                 layers.push(node);
             }
             for(let i=1;i<layers.length;i++){
@@ -166,8 +166,9 @@
             if(example.method){
                 const step=P.create(example.method);step.payload='Hello from the mountains! This message is hidden in the landscape image.';
                 step.options={...step.options,channels:'RGB',bits:1};layers[0].payloadSteps.push(step);layers[0].imageDirty=true;
-                layers[0].entries.push({name:'decoding.txt',kind:'file',bytes:textEncoder.encode('Open the downloaded landscape.png in ST3GG Decode. Select LSB, RGB channels and 1 bit to read the hidden message. No password is needed.\n')});
+                layers[0].entries.push({name:'decoding.txt',kind:'file',bytes:textEncoder.encode(PolyInstructions.payload(layers[0],step,P.options(step))+'\n')});
             }
+            for(const node of layers)for(const entry of node.entries)if(entry.template)entry.bytes=textEncoder.encode(PolyInstructions.layer(node,P.steps(node),P.options)+'\n');
             C.check(signal);
             for(const node of nodes())rememberImage(node);
             root=layers[0];knownRoot=root;selected=root.id;api.replaceRoot(root);
@@ -496,7 +497,7 @@
         const name = C.path(d.name.trim()); if (name.endsWith('/')) throw new Error('Choose a file path.'); C.collision(node.entries,name,d.entry);
         let entry = d.entry; if (!entry) { entry = {name,kind:'file',bytes:new Uint8Array()}; node.entries.push(entry); }
         entry.name = name; if (entry.template && d.text !== d.initial) entry.template.override = true;
-        api.saveText(node,entry,d.text); dirty(node); d.entry = entry; d.initial = d.text; d.creating = false; newFileDrafts.delete(node.id);fileDrafts.set(entry,d); progress = name + ' saved.'; render();
+        api.saveText(node,entry,d.text); dirty(node); d.entry = entry; d.initial = d.text; d.creating = false; newFileDrafts.delete(node.id);fileDrafts.set(entry,d); progress = `${name} saved in ${node.name}'s ZIP. Build and download to export the updated image.`; render();
     }
     function helpButton(parent, method) { const b = button(parent,'?',() => { help = help === method ? null : method;if(help)expanded.add('help-'+method+'-example');render(); },'nw-help-button',`About ${PolyTechniqueHelp[method].title}`); b.setAttribute('aria-label',`Explain ${method}`); b.setAttribute('aria-expanded',String(help === method)); }
     function drawPresets(parent) {
@@ -897,7 +898,8 @@
         field(parent,'Archive path',draft.name,v=>{draft.name=v;},{key:'file-name'});
         const textarea=field(parent,'Contents',draft.text,v=>{draft.text=v;},{area:true,key:'file-content',live:true});textarea.classList.add('nw-file-text');
         if(draft.entry?.template)badge(parent,draft.entry.template.override?'File override':'Template linked');
-        const actions=row(parent);button(actions,'Save text file',saveFile,'primary');button(actions,'Download text',()=>api.download(textEncoder.encode(draft.text),draft.name));button(actions,'Discard edits',()=>{draft.text=draft.initial;if(draft.creating){newFileDrafts.delete(draft.nodeId);activeFile=null;}view='';render();});
+        const actions=row(parent);button(actions,`Save to ${node.name} ZIP`,saveFile,'primary');button(actions,'Download text',()=>api.download(textEncoder.encode(draft.text),draft.name));button(actions,'Discard edits',()=>{draft.text=draft.initial;if(draft.creating){newFileDrafts.delete(draft.nodeId);activeFile=null;}view='';render();});
+        note(parent,'Saves the archive path and contents in this layer. Build and download to export the updated image.');
     }
     function drawTemplates(parent,node) {
         const tpl=selectedTemplate(), header=row(parent,'nw-editor-actions-heading');header.append(el('h3','Templates'));
