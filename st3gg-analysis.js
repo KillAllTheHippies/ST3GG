@@ -6,6 +6,32 @@
     const urls = [];
     function element(tag,text,className) { const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node; }
     const clean = value => String(value).replace(/[^a-z0-9_.-]+/gi,'_');
+    let tooltipId = 0;
+    function explain(label, info, control) {
+        label.classList.add('inspection-term');
+        const text=element('span',`${info.title}. ${info.description}`,'inspection-tooltip');
+        text.id='inspection-tooltip-'+(++tooltipId);text.setAttribute('role','tooltip');label.append(text);
+        control.setAttribute('aria-describedby',text.id);
+        control.addEventListener('keydown',event=>{if(event.key==='Escape')text.hidden=true;});
+        const position=()=>{
+            text.hidden=false;
+            const bounds=control.getBoundingClientRect();
+            // Account for the app's CSS zoom and any transformed containing block.
+            text.style.left='0px';text.style.top='0px';
+            const origin=text.getBoundingClientRect(),scale=origin.width/text.offsetWidth;
+            text.style.left=((Math.max(16,Math.min(bounds.left,innerWidth-origin.width-16))-origin.left)/scale)+'px';
+            text.style.top=(((bounds.bottom+origin.height+12<innerHeight?bounds.bottom+7:Math.max(8,bounds.top-origin.height-7))-origin.top)/scale)+'px';
+        };
+        control.addEventListener('focusin',position);
+        control.addEventListener('pointerenter',position);
+    }
+    function knowledgeLink(info, name) {
+        const link=element('a','About','inspection-term-help');
+        link.href=`knowledgebase.html#${info.article}${info.section?'/'+info.section:''}`;
+        link.setAttribute('aria-label','Read about '+name);
+        link.onclick=event=>{event.preventDefault();event.stopPropagation();ST3GGKnowledge.open(info.article,info.section);};
+        return link;
+    }
     function recordView(record) {
         const section=element('div',undefined,'inspection-record');
         section.append(element('h4',record.title));
@@ -34,13 +60,17 @@
         const tree=$('metadata-tree');tree.replaceChildren();
         const overview=$('metadata-overview');overview.replaceChildren();
         for(const [id,category]of Object.entries(model.categories)){
-            const count=category.records.length,chip=element(count?'a':'span',undefined,'inspection-category-count');if(count)chip.href='#inspection-category-'+id;chip.append(element('span',category.title),element('strong',String(count)));overview.append(chip);
+            const count=category.records.length,chip=element(count?'a':'span',undefined,'inspection-category-count');if(count)chip.href='#inspection-category-'+id;
+            const categoryLabel=element('span',category.title),categoryInfo=ST3GGKnowledge.term(id);
+            chip.append(categoryLabel,element('strong',String(count)));if(categoryInfo){if(!count)chip.tabIndex=0;explain(categoryLabel,categoryInfo,chip);}overview.append(chip);
             if(!count)continue;
             const section=element('section',undefined,'inspection-category');section.id='inspection-category-'+id;section.dataset.category=id;section.dataset.count=String(count);
-            const heading=element('h3',`${category.title} · ${count} ${count===1?'record':'records'}`);section.append(heading);
+            const heading=element('h3',`${category.title} · ${count} ${count===1?'record':'records'}`),headingRow=element('div',undefined,'inspection-category-heading');headingRow.append(heading);if(categoryInfo)headingRow.append(knowledgeLink(categoryInfo,category.title));section.append(headingRow);
             const groups=new Map();for(const record of category.records){if(!groups.has(record.group))groups.set(record.group,[]);groups.get(record.group).push(record);}
             for(const [name,records]of groups){
-                const group=element('details',undefined,'inspection-group'),summary=element('summary');summary.append(element('span',name),element('span',String(records.length),'inspection-count'));group.append(summary);
+                const group=element('details',undefined,'inspection-group'),summary=element('summary'),label=element('span',undefined,'inspection-term-label'),info=ST3GGKnowledge.term(id,name);
+                label.append(element('span',name));summary.append(label,element('span',String(records.length),'inspection-count'));
+                if(info){explain(label,info,summary);summary.append(knowledgeLink(info,name));}group.append(summary);
                 let populated=false;group.addEventListener('toggle',()=>{if(group.open&&!populated){for(const record of records)group.append(recordView(record));populated=true;}});
                 section.append(group);
             }

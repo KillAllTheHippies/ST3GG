@@ -49,19 +49,67 @@
             ['Interpreting indicators','Appended data, candidate file signatures and base64-like text are leads. Normal metadata, embedded thumbnails and deliberate polyglots can explain them. File inspection does not automatically decode pixel-embedded messages. Export report includes the complete collected records even when groups are collapsed.']
         ],sources:[png]}
     };
+    const pngChunks={
+        IHDR:['Image header','Defines the image dimensions, bit depth, color type and encoding methods.'],
+        PLTE:['Palette','Lists the colors used by an indexed-color image.'],
+        IDAT:['Image data','Holds compressed image data. Multiple IDAT chunks form one compressed stream.'],
+        IEND:['Image trailer','Marks the end of the PNG datastream. Bytes after it are appended data.'],
+        sRGB:['Standard RGB color space','Identifies the standard RGB color space and rendering intent.'],
+        gAMA:['Image gamma','Describes the relationship between stored samples and image intensity.'],
+        pHYs:['Physical pixel dimensions','Records pixel density or pixel aspect ratio, with an optional physical unit.'],
+        tEXt:['Textual data','Stores a keyword and uncompressed Latin-1 text.'],
+        zTXt:['Compressed textual data','Stores a keyword and compressed Latin-1 text.'],
+        iTXt:['International textual data','Stores UTF-8 text, optional compression and language information.'],
+        iCCP:['Embedded ICC profile','Stores a compressed color profile for interpreting image colors.'],
+        eXIf:['Exchangeable image file profile','Stores EXIF metadata in TIFF structure.'],
+        cHRM:['Primary chromaticities and white point','Describes color primaries and white point.'],
+        sBIT:['Significant bits','Records the original precision of the image samples.'],
+        tRNS:['Transparency','Defines transparency for image types without a full alpha channel.'],
+        bKGD:['Background color','Suggests a background for presenting the image.'],
+        hIST:['Image histogram','Records approximate use counts for palette entries.'],
+        tIME:['Image last-modification time','Records when the image was last modified.'],
+        sPLT:['Suggested palette','Provides an optional palette for reducing displayed colors.'],
+        acTL:['Animation control','Declares the frame count and repeat count for an animated PNG.'],
+        fcTL:['Frame control','Describes an animation frame and how to compose it.'],
+        fdAT:['Frame data','Holds compressed data for a subsequent animation frame.'],
+        cICP:['Coding-independent code points','Identifies color primaries, transfer characteristics, matrix coefficients and signal range.'],
+        mDCV:['Mastering display color volume','Describes the color volume of the mastering display.'],
+        cLLI:['Content light level information','Describes light levels of the image content.']
+    };
+    const metadataTerms={
+        exif:['EXIF — Exchangeable Image File Format','Camera, capture and other image metadata, organized into TIFF directories.'],
+        iptc:['IPTC — International Press Telecommunications Council','A metadata standard used for captions, keywords, credits and related editorial information. Photoshop resources can carry IPTC records.'],
+        xmp:['XMP — Extensible Metadata Platform','XML-based metadata that can contain titles, descriptions, rights and application-specific properties.'],
+        png:['PNG — Portable Network Graphics','An image container organized into named chunks. Chunk names retain their exact letter case.'],
+        jpeg:['JPEG — Joint Photographic Experts Group','An image format organized into markers and segments. Application segments can carry EXIF, XMP and other metadata.'],
+        icc:['ICC — International Color Consortium','Color profiles describe how an image’s color values should be interpreted.'],
+        thumbnail:['Thumbnails','Small embedded image previews, separate from the main image.'],
+        hidden:['Hidden-data indicators','Byte patterns and structural findings that warrant inspection; they are not proof of an extracted payload.'],
+        format:['Format details','Container-specific records such as GIF extensions, RIFF chunks and BMP header fields.']
+    };
+    entries['png-chunks']={title:'PNG chunk names',sections:[
+        ['Reading chunk names','The four-letter names identify record types. Letter case is significant. Expand a group in Analyze to see its instances; a familiar chunk name alone does not imply hidden content.'],
+        ...Object.entries(pngChunks).map(([name,[title,text]])=>[name+' — '+title,text,name])
+    ],sources:[png]};
+    entries['metadata-terms']={title:'Metadata acronyms and categories',sections:Object.entries(metadataTerms).map(([id,[title,text]])=>[title,text,id]),sources:[]};
+    function term(category,name){
+        if(name!==undefined){if(category!=='png')return null;const info=pngChunks[name];return {title:info?.[0]||'Additional PNG chunk',description:info?.[1]||'A registered extension or private chunk. Inspect its fields and originating application to establish its meaning.',article:'png-chunks',section:info?name:''};}
+        const info=metadataTerms[category];return info?{title:info[0],description:info[1],article:'metadata-terms',section:category}:null;
+    }
     function el(tag,text,className){const e=document.createElement(tag);if(text)e.textContent=text;if(className)e.className=className;return e;}
-    function article(id){const entry=entries[id]||entries.channels,root=el('article',undefined,'knowledge-article');root.append(el('h1',entry.title));for(const [title,text]of entry.sections){const section=el('section');section.append(el('h2',title),el('p',text));root.append(section);}if(entry.sources.length){const section=el('section');section.append(el('h2','References'));for(const source of entry.sources){const p=el('p'),a=el('a',source.title);a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';p.append(a);section.append(p);}root.append(section);}return root;}
+    function article(id){const entry=entries[id]||entries.channels,root=el('article',undefined,'knowledge-article');root.append(el('h1',entry.title));for(const [title,text,term]of entry.sections){const section=el('section');if(term)section.dataset.term=term;section.append(el('h2',title),el('p',text));root.append(section);}if(entry.sources.length){const section=el('section');section.append(el('h2','References'));for(const source of entry.sources){const p=el('p'),a=el('a',source.title);a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';p.append(a);section.append(p);}root.append(section);}return root;}
     let dialog,lastFocus;
-    function open(id){if(!entries[id])return;lastFocus=document.activeElement;if(!dialog){dialog=el('dialog',undefined,'knowledge-dialog');dialog.setAttribute('aria-label','Analysis knowledgebase');document.body.append(dialog);dialog.addEventListener('cancel',()=>lastFocus?.focus({preventScroll:true}));}dialog.replaceChildren();const close=el('button','Close','btn btn-secondary');close.onclick=()=>{dialog.close();lastFocus?.focus({preventScroll:true});};dialog.append(close,article(id));dialog.showModal();}
+    function showTerm(root,term){const section=[...root.querySelectorAll('[data-term]')].find(s=>s.dataset.term===term);section?.scrollIntoView({block:'start'});}
+    function open(id,term){if(!entries[id])return;lastFocus=document.activeElement;if(!dialog){dialog=el('dialog',undefined,'knowledge-dialog');dialog.setAttribute('aria-label','Analysis knowledgebase');document.body.append(dialog);dialog.addEventListener('cancel',()=>lastFocus?.focus({preventScroll:true}));}dialog.replaceChildren();const close=el('button','Close','btn btn-secondary');close.onclick=()=>{dialog.close();lastFocus?.focus({preventScroll:true});};dialog.append(close,article(id));dialog.showModal();dialog.scrollTop=0;if(term)showTerm(dialog,term);}
     document.addEventListener('click',event=>{const link=event.target.closest('a[data-knowledge]');if(link){event.preventDefault();open(link.dataset.knowledge);}});
     document.addEventListener('DOMContentLoaded',()=>{
         const headings={'Color Channel Layers':'channels','Steganalysis Transforms':'transforms','YCbCr Color Space':'ycbcr','Histogram Analysis':'histogram','Chi-Square Analysis':'chi-square','DCT Block Analysis':'dct'};
         for(const h of document.querySelectorAll('#channel-layers-section h2')){const id=headings[h.textContent.trim()];if(!id)continue;const row=el('div',undefined,'analysis-card-heading'),link=el('a','About this view','analysis-help-link');h.replaceWith(row);row.append(h,link);link.href='knowledgebase.html#'+id;link.dataset.knowledge=id;link.setAttribute('aria-label','Read about '+entries[id].title);}
         if(document.body.dataset.knowledgePage!==undefined){
             const nav=document.getElementById('knowledge-nav'),content=document.getElementById('knowledge-content'),search=document.getElementById('knowledge-search');
-            function render(){const query=search.value.toLowerCase();nav.replaceChildren();for(const [id,entry]of Object.entries(entries))if((entry.title+' '+entry.sections.flat().join(' ')).toLowerCase().includes(query)){const link=el('a',entry.title);link.href='#'+id;nav.append(link);}content.replaceChildren(article(location.hash.slice(1)||'channels'));}
+            function render(){const query=search.value.toLowerCase();nav.replaceChildren();for(const [id,entry]of Object.entries(entries))if((entry.title+' '+entry.sections.flat().join(' ')).toLowerCase().includes(query)){const link=el('a',entry.title);link.href='#'+id;nav.append(link);}const [id,term]=location.hash.slice(1).split('/');content.replaceChildren(article(id||'channels'));if(term)showTerm(content,term);}
             search.addEventListener('input',render);window.addEventListener('hashchange',render);render();
         }
     });
-    window.ST3GGKnowledge=Object.freeze({entries,open,article});
+    window.ST3GGKnowledge=Object.freeze({entries,open,article,term});
 })();

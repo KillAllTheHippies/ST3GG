@@ -13,3 +13,12 @@
 
 .inspection-panel>.result-actions{margin:16px 0;gap:8px;flex-wrap:wrap}.inspection-panel>.result-actions .btn{color:#cbd5db;font-size:11px;text-transform:none;letter-spacing:0;padding:8px 12px;min-height:36px}
 @media(max-width:750px){.inspection-panel>.result-actions .btn,.inspection-group>summary{min-height:44px}}
+.inspection-category-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.inspection-term-help{font-size:11px;color:var(--secondary);text-decoration:underline;flex-shrink:0;padding:0 4px}
+.inspection-term-help:focus-visible{outline:2px solid var(--secondary);outline-offset:3px}
+.inspection-term{position:relative;min-width:0}
+.inspection-term.inspection-term-label>span:first-child{border-bottom:1px dotted #7e96a8}
+.inspection-tooltip{display:block;visibility:hidden;position:fixed;z-index:30;width:280px;max-width:calc(100vw - 32px);padding:10px 12px;background:#101820;color:#dce6ee;border:1px solid #506575;border-radius:4px;box-shadow:0 5px 18px #0008;font:12px/1.6 monospace;white-space:normal;overflow-wrap:anywhere;text-transform:none;letter-spacing:0;pointer-events:none}
+.inspection-group>summary:hover .inspection-tooltip,.inspection-group>summary:focus-within .inspection-tooltip,.inspection-category-count:hover .inspection-tooltip,.inspection-category-count:focus .inspection-tooltip{visibility:visible}
+.inspection-category-count[tabindex]{cursor:help}
+@media(max-width:750px){.inspection-term-help{min-width:44px;min-height:24px;text-align:center}.inspection-group>summary{align-items:center}}
