@@ -105,10 +105,12 @@
     document.addEventListener('DOMContentLoaded',()=>{
         const headings={'Color Channel Layers':'channels','Steganalysis Transforms':'transforms','YCbCr Color Space':'ycbcr','Histogram Analysis':'histogram','Chi-Square Analysis':'chi-square','DCT Block Analysis':'dct'};
         for(const h of document.querySelectorAll('#channel-layers-section h2')){const id=headings[h.textContent.trim()];if(!id)continue;const row=el('div',undefined,'analysis-card-heading'),link=el('a','About this view','analysis-help-link');h.replaceWith(row);row.append(h,link);link.href='knowledgebase.html#'+id;link.dataset.knowledge=id;link.setAttribute('aria-label','Read about '+entries[id].title);}
-        if(document.body.dataset.knowledgePage!==undefined){
+        if(document.body.dataset.knowledgePage!==undefined||document.getElementById('knowledgebase-panel')){
             const nav=document.getElementById('knowledge-nav'),content=document.getElementById('knowledge-content'),search=document.getElementById('knowledge-search');
-            function render(){const query=search.value.toLowerCase();nav.replaceChildren();for(const [id,entry]of Object.entries(entries))if((entry.title+' '+entry.sections.flat().join(' ')).toLowerCase().includes(query)){const link=el('a',entry.title);link.href='#'+id;nav.append(link);}const [id,term]=location.hash.slice(1).split('/');content.replaceChildren(article(id||'channels'));if(term)showTerm(content,term);}
+            const inApp=!!document.getElementById('knowledgebase-panel'),prefix=inApp?'knowledgebase/':'';
+            function render(){const query=search.value.toLowerCase();nav.replaceChildren();for(const [id,entry]of Object.entries(entries))if((entry.title+' '+entry.sections.flat().join(' ')).toLowerCase().includes(query)){const link=el('a',entry.title);link.href='#'+prefix+id;nav.append(link);}const route=location.hash.slice(1),[id,term]=(route.startsWith(prefix)?route.slice(prefix.length):'').split('/');content.replaceChildren(article(id||'channels'));if(term)showTerm(content,term);}
             search.addEventListener('input',render);window.addEventListener('hashchange',render);render();
+            if(inApp){const activate=()=>{if(location.hash.startsWith('#knowledgebase/')){document.querySelector('.tabs [data-tab=knowledgebase]').click();render();}};window.addEventListener('hashchange',activate);activate();}
         }
     });
     window.ST3GGKnowledge=Object.freeze({entries,open,article,term});

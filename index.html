@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>🥚 STE.GG 🦕</title>
     <link rel="stylesheet" href="polyglot.css">
+    <link rel="stylesheet" href="st3gg-navigation.css?v=20261106-tabs2">
     <link rel="stylesheet" href="st3gg-analysis.css?v=20261104-terms1">
-    <link rel="stylesheet" href="st3gg-knowledge.css?v=20261104-terms1">
+    <link rel="stylesheet" href="st3gg-knowledge.css?v=20261106-navigation1">
     <link rel="stylesheet" href="st3gg-workflow.css?v=20261104-3">
     <link rel="stylesheet" href="st3gg-agent-models.css?v=20261105-feedback1">
-    <link rel="stylesheet" href="polyglot-workspace.css?v=20261104-annotations1">
+    <link rel="stylesheet" href="polyglot-workspace.css?v=20261106-navigation1">
     <style>
         :root {
             --primary: #00ff41;
@@ -1067,16 +1068,13 @@
             background: linear-gradient(135deg, #ff3333 0%, #990000 100%);
             padding: 10px 20px;
             border-radius: 8px;
-            cursor: pointer;
+            cursor: default;
             z-index: 1000;
             box-shadow: 0 0 30px rgba(255, 0, 0, 0.5);
             transition: all 0.3s ease;
         }
 
-        .godmode-indicator:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 40px rgba(255, 0, 0, 0.7);
-        }
+
 
         .godmode-indicator .indicator-text {
             color: #fff;
@@ -1084,11 +1082,7 @@
             font-size: 14px;
         }
 
-        .godmode-indicator .indicator-hint {
-            display: block;
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 10px;
-        }
+
 
         .cipher-pattern-input {
             font-family: 'JetBrains Mono', monospace;
@@ -1165,25 +1159,20 @@
             border: 2px solid var(--accent);
             border-radius: 8px;
             padding: 10px 16px;
-            cursor: pointer;
+            cursor: default;
             display: flex;
             align-items: center;
             gap: 10px;
         }
 
-        .matryoshka-indicator:hover {
-            background: rgba(255, 0, 255, 0.2);
-        }
+
 
         .indicator-text {
             color: var(--accent);
             font-weight: bold;
         }
 
-        .indicator-hint {
-            color: #a78bfa;
-            font-size: 10px;
-        }
+
 
         /* Matryoshka results */
         .matryoshka-results {
@@ -1389,6 +1378,7 @@
             <button class="tab tab-textlab" data-tab="textlab" id="textlab-tab-btn" style="display: none;">Text Lab</button>
             <button class="tab tab-aiagent" data-tab="aiagent" id="aiagent-tab-btn">Agent</button>
             <button class="tab" data-tab="configuration" id="configuration-tab-btn">Configuration</button>
+            <button class="tab" data-tab="knowledgebase" id="knowledgebase-tab-btn">Knowledgebase</button>
         </nav>
 
         <!-- Encode Panel -->
@@ -2543,6 +2533,18 @@
             </div>
         </section>
 
+        <section class="panel" id="knowledgebase-panel" aria-label="Knowledgebase">
+            <h1 class="card-title">Knowledgebase</h1>
+            <div class="knowledge-layout">
+                <aside class="knowledge-sidebar">
+                    <label for="knowledge-search">Find a topic</label>
+                    <input id="knowledge-search" type="search" placeholder="Search guides and acronyms">
+                    <nav id="knowledge-nav" aria-label="Knowledgebase topics"></nav>
+                </aside>
+                <main id="knowledge-content"></main>
+            </div>
+        </section>
+
         <!-- Matryoshka Panel (Hidden Tab) -->
         <section class="panel" id="matryoshka-panel">
             <div class="matryoshka-header">
@@ -3222,15 +3224,13 @@
     <!-- Unlock All Easter Eggs Trigger (bottom-right corner, triple-click) -->
 
     <!-- Matryoshka Mode Indicator (shown when active) -->
-    <div class="matryoshka-indicator hidden" id="matryoshka-indicator" onclick="deactivateMatryoshka()">
+    <div class="matryoshka-indicator hidden" id="matryoshka-indicator" role="status">
         <span class="indicator-text">🪆 NESTED STEGG MODE</span>
-        <span class="indicator-hint">click to deactivate</span>
     </div>
 
     <!-- SPECTER Indicator (shown when active) -->
-    <div class="godmode-indicator hidden" id="godmode-indicator" onclick="deactivateGodmode()">
+    <div class="godmode-indicator hidden" id="godmode-indicator" role="status">
         <span class="indicator-text">🧬 SPECTER ACTIVE</span>
-        <span class="indicator-hint">click to deactivate</span>
     </div>
 
     <!-- Hidden canvas for image processing -->
@@ -10095,6 +10095,17 @@
             `;
         }
 
+        const modeBannerTimers = new Map();
+        function showModeBanner(id) {
+            clearTimeout(modeBannerTimers.get(id));
+            const banner = document.getElementById(id);
+            banner.classList.remove('hidden');
+            modeBannerTimers.set(id, setTimeout(() => {
+                banner.classList.add('hidden');
+                modeBannerTimers.delete(id);
+            }, 5000));
+        }
+
         // ============== MATRYOSHKA EASTER EGG ==============
         function activateMatryoshka() {
             state.matryoshkaMode = true;
@@ -10108,7 +10119,7 @@
             }
 
             // Show the indicator
-            document.getElementById('matryoshka-indicator').classList.remove('hidden');
+            showModeBanner('matryoshka-indicator');
             document.getElementById('matryoshka-decode-btn').classList.remove('hidden');
 
             notify('🪆 MATRYOSHKA MODE ACTIVATED', 'success');
@@ -10436,7 +10447,7 @@
             }
 
             // Show the indicator
-            document.getElementById('godmode-indicator').classList.remove('hidden');
+            showModeBanner('godmode-indicator');
 
             notify('🧬 SPECTER ENABLED 👁', 'success');
         }
@@ -21878,10 +21889,10 @@ Binary data (${formatSize(data.length)})
     <script src="st3gg-transfers.js?v=20261104-3"></script>
     <script src="st3gg-inspection.js?v=20261104-analysis1"></script>
     <script src="st3gg-analysis.js?v=20261104-terms1"></script>
-    <script src="st3gg-knowledge.js?v=20261104-terms1"></script>
+    <script src="st3gg-knowledge.js?v=20261106-navigation1"></script>
     <script src="st3gg-workflow.js?v=20261104-analysis1"></script>
     <script src="st3gg-workflow-ports.js?v=20261104-3"></script>
-    <script src="st3gg-workbench.js?v=20261104-3"></script>
+    <script src="st3gg-workbench.js?v=20261106-navigation1"></script>
     <script src="st3gg-model-pricing.js?v=20261105-feedback1"></script>
     <script src="st3gg-workflow-ui.js?v=20261105-feedback1"></script>
     <script src="polyglot-core.js?v=20261025-zipcomments5"></script>
@@ -21897,8 +21908,9 @@ Binary data (${formatSize(data.length)})
     <script src="polyglot-instructions.js?v=20261105-feedback1"></script>
     <script src="polyglot-help.js"></script>
     <script src="polyglot-image-library.js"></script>
-    <script src="polyglot-workspace.js?v=20261105-feedback1"></script>
+    <script src="polyglot-workspace.js?v=20261106-navigation1"></script>
     <script src="polyglot.js?v=20261104-3"></script>
+    <script src="st3gg-navigation.js?v=20261106-tabs2"></script>
     <script>
         if (new URLSearchParams(location.search).get('preview') === 'polyglot') {
             document.addEventListener('DOMContentLoaded', () => activatePolyglot({ announce: false }));

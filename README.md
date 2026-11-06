@@ -82,6 +82,8 @@ The implementation is split by responsibility:
   callers must explicitly opt into replacement.
 - `st3gg-workbench.js`: the reusable filtered input picker and work list.
 - `st3gg-workflow-ui.js`: shared settings and result controls.
+- `st3gg-navigation.js`: compact one-row tool navigation with a chevron dropdown;
+  the active tool stays visible and locked modes remain hidden.
 
 To connect another tool, register its input roles, publish completed artifacts
 with `publish(key, artifact)`, and mount its result menu with `mount(host, producer)`.
@@ -111,6 +113,8 @@ matches are leads, not verified extracted files; malformed records produce notes
 `st3gg-analysis.js` manages scan reuse, file replacement and the results tree.
 The six visual analysis sections link to articles shared by in-place help and
 the searchable [analysis knowledgebase](knowledgebase.html).
+The same library is available directly through the application's **Knowledgebase**
+tab, including topic search and links to individual articles.
 The optional live histogram walkthrough is tracked in [TODO.md](TODO.md).
 
 Run `node tests/analysis-browser.cjs` using the same isolated browser setup above
@@ -142,6 +146,15 @@ Build and download exports the updated image. Manual file overrides are preserve
 `node tests/feedback-browser.cjs` checks pricing with a deterministic catalog
 fixture, keyboard selection, narrow-screen layout, per-layer guidance after build
 and reopen, and editor save destinations using the isolated browser setup above.
+
+The archive inspector labels file creation **New text file** and provides pointer
+and keyboard-focus tooltips for its file, comment and template actions. Preset
+selection retains the preset list's position, sidebar position and keyboard focus.
+`node tests/navigation-browser.cjs` covers these interactions, Knowledgebase tab
+navigation and the overflow dropdown at desktop and mobile widths. The chevron
+appears only when tabs do not fit; its list opens below the navigation without
+blocking the rest of the page. SPECTER and Nested Stegg activation banners are
+passive status messages that hide after five seconds while their modes stay enabled.
 
 ### Connect OpenRouter
 

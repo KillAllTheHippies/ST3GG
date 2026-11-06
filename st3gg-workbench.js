@@ -12,7 +12,8 @@
         godmode: ['SPECTER', 'Encode and decode with a channel cipher.'],
         textlab: ['Text Lab', 'Hide messages inside text and pass the output to other payload editors.'],
         aiagent: ['Agent', 'Reveal or conceal using your selected models. Transfers prepare inputs; you start the request.'],
-        configuration: ['Configuration', 'One connection, with shared analysis, image and planning models.']
+        configuration: ['Configuration', 'One connection, with shared analysis, image and planning models.'],
+        knowledgebase: ['Knowledgebase', 'Browse analysis guides, metadata acronyms and PNG chunk explanations.']
     };
     function el(tag, text, className) { const e = document.createElement(tag); if (text) e.textContent = text; if (className) e.className = className; return e; }
     function button(label, run, host) { const b = el('button', label, 'btn btn-secondary'); b.type = 'button'; b.onclick = run; host.append(b); return b; }

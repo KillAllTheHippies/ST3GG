@@ -21,7 +21,7 @@
     function icon(name) { const im=el('img',null,'nw-icon');im.src=`assets/polyglot/icons/${name}.svg`;im.alt='';im.setAttribute('aria-hidden','true');return im; }
     function buttonLabel(button,label) {
         button.replaceChildren();
-        const match=[[/^(?:Build|Generate|Review run)/,'player-play'],[/^Regenerate|^Recreate/,'refresh'],[/^Download/,'download'],[/^(?:Upload|Replace with|Use an image)/,'upload'],[/^Add files/,'folder-plus'],[/^Add text|Template|template/,'file-text'],[/^Import|^Open an existing/,'folder-open'],[/^Previous/,'chevron-left'],[/^Next:|^Continue to/,'chevron-right']].find(([pattern])=>pattern.test(label));
+        const match=[[/^(?:Build|Generate|Review run)/,'player-play'],[/^Regenerate|^Recreate/,'refresh'],[/^Download/,'download'],[/^(?:Upload|Replace with|Use an image)/,'upload'],[/^Add files/,'folder-plus'],[/^New text file|^Add text|Template|template/,'file-text'],[/^Import|^Open an existing/,'folder-open'],[/^Previous/,'chevron-left'],[/^Next:|^Continue to/,'chevron-right']].find(([pattern])=>pattern.test(label));
         const symbols={'+':'plus','−':'minus','×':'x','⋯':'dots'};
         if(symbols[label]){button.append(icon(symbols[label]));button.setAttribute('aria-label',({'+':'Zoom in','−':'Zoom out','×':'Close','⋯':'More actions'})[label]);}
         else {if(match)button.append(icon(match[1]));if(label)button.append(el('span',label));}
@@ -33,6 +33,21 @@
         if (title) n.title = title;
         n.onclick = async () => { try { error = ''; await fn(); } catch (e) { error = e.message; render(); } };
         parent.append(n); return n;
+    }
+    let archiveTooltip;
+    function archiveHint(control,text) {
+        control.removeAttribute('title');control.dataset.tooltip=text;control.setAttribute('aria-description',text);
+        const hide=()=>{if(archiveTooltip)archiveTooltip.hidden=true;};
+        const show=()=>{
+            if(!archiveTooltip){archiveTooltip=el('div',null,'nw-control-tooltip');archiveTooltip.id='nw-control-tooltip';archiveTooltip.setAttribute('role','tooltip');document.body.append(archiveTooltip);}
+            archiveTooltip.textContent=text;archiveTooltip.hidden=false;control.setAttribute('aria-describedby',archiveTooltip.id);
+            archiveTooltip.style.left='0px';archiveTooltip.style.top='0px';
+            const origin=archiveTooltip.getBoundingClientRect(),bounds=control.getBoundingClientRect(),scale=origin.width/archiveTooltip.offsetWidth;
+            archiveTooltip.style.left=((Math.max(12,Math.min(bounds.left,innerWidth-origin.width-12))-origin.left)/scale)+'px';
+            archiveTooltip.style.top=(((bounds.bottom+origin.height+10<innerHeight?bounds.bottom+6:Math.max(8,bounds.top-origin.height-6))-origin.top)/scale)+'px';
+        };
+        control.addEventListener('pointerenter',show);control.addEventListener('focus',show);control.addEventListener('pointerleave',hide);control.addEventListener('blur',hide);control.addEventListener('keydown',event=>{if(event.key==='Escape'&&archiveTooltip&&!archiveTooltip.hidden){event.preventDefault();event.stopPropagation();hide();}});
+        return control;
     }
     function field(parent, label, value, fn, opts = {}) {
         const wrap = el('label', null, 'nw-field'); wrap.append(el('span', label));
@@ -507,7 +522,7 @@
         const categories=row(parent,'nw-preset-categories');categories.setAttribute('aria-label','Preset category');for(const category of ['All','Containers','Structures','Encoding']){const b=button(categories,category,()=>{presetGroup=category;render();},presetGroup===category?'active':'');b.setAttribute('aria-pressed',String(presetGroup===category));}
         const matches=PolyPresets.filter(p=>(presetGroup==='All'||p.group===presetGroup)&&(p.title+' '+p.description).toLowerCase().includes(presetQuery.toLowerCase())),list=el('div',null,'nw-preset-list');parent.append(list);
         if(matches.length&&!matches.some(p=>p.id===previewPreset))previewPreset=matches[0].id;
-        for(const preset of matches){const b=button(list,'',()=>{previewPreset=preset.id;render();},preset.id===previewPreset?'nw-preset-selected':'');b.append(icon(preset.method?'file-text':preset.group==='Structures'?'layers-intersect':'archive'),el('strong',preset.title),el('span',String(preset.count),'nw-preset-count'));b.setAttribute('aria-pressed',String(preset.id===previewPreset));}
+        for(const preset of matches){const b=button(list,'',()=>{previewPreset=preset.id;render();},preset.id===previewPreset?'nw-preset-selected':'');b.dataset.focus='preset-'+preset.id;b.append(icon(preset.method?'file-text':preset.group==='Structures'?'layers-intersect':'archive'),el('strong',preset.title),el('span',String(preset.count),'nw-preset-count'));b.setAttribute('aria-pressed',String(preset.id===previewPreset));}
         if(!matches.length)note(list,'No presets match this search.');
         const preview=matches.find(p=>p.id===previewPreset)||matches[0];if(preview){const detail=el('section',null,'nw-preset-detail');detail.append(el('strong',preview.title));note(detail,preview.description);button(detail,'Use this preset',()=>newRun(preview));parent.append(detail);}
     }
@@ -745,27 +760,32 @@
         }
         const archiveHeading=el('h3','Archive files (inside this layer)');archiveHeading.id=`nw-archive-${node.id}`;parent.append(archiveHeading);
         const archiveCommentButton=button(parent,node.commentBytes?.length?'Edit archive comment':'Add archive comment',()=>editComment(node),'nw-archive-comment nw-comment-action',archiveCommentTip);archiveCommentButton.setAttribute('aria-description',archiveCommentTip);
+        archiveHint(archiveCommentButton,archiveCommentTip);
         const files=el('div',null,'nw-archive-list');parent.append(files);
         for(const entry of node.entries){const r=row(files,'nw-file-row');const b=button(r,'',()=>entry.child?select(entry.child):entry.kind==='folder'?viewFolder(node,entry):editFile(node,entry),'nw-file-name');
             if(entry.child?.image)image(b,entry.child.image,'nw-file-thumbnail');else b.append(icon(entry.child?'archive':entry.kind==='folder'?'folder':'file-text'));b.append(el('span',entry.name));
+            archiveHint(b,entry.child?`Select the enclosed image layer ${entry.name}.`:entry.kind==='folder'?`Browse the ${entry.name} folder in ${node.name}'s ZIP.`:`View or edit ${entry.name} in ${node.name}'s ZIP.`);
             if(entry.child)badge(r,'Child layer');else if(entry.template)badge(r,entry.template.override?'Override':'Template linked');
-            button(r,entry.commentBytes?.length?'Comment':'Add comment',()=>editComment(node,entry),'nw-entry-comment nw-comment-action',(entry.commentBytes?.length?'Edit':'Add')+' ZIP comment for '+entry.name);
+            archiveHint(button(r,entry.commentBytes?.length?'Comment':'Add comment',()=>editComment(node,entry),'nw-entry-comment nw-comment-action'),(entry.commentBytes?.length?'Edit':'Add')+' the ZIP entry comment for '+entry.name+'.');
             const menu=el('details',null,'nw-file-menu');const summary=el('summary');summary.append(icon('dots'));summary.setAttribute('aria-label','Actions for '+entry.name);menu.append(summary);r.append(menu);const items=el('div');menu.append(items);
+            archiveHint(summary,`Download, rename or manage ${entry.name} in this ZIP.`);
             button(items,'Download',()=>entry.child?build(true,entry.child):entry.bytes?api.download(entry.bytes,entry.name):Promise.reject(new Error('Extraction is unavailable for this preserved entry. Download the containing ZIP.')));
             const commentAction=button(items,entry.commentBytes?.length?'Edit ZIP comment':'Add ZIP comment',()=>editComment(node,entry),'nw-comment-action');commentAction.prepend(icon('file-text'));
             button(items,'Rename / move',()=>{const next=prompt('Relative path',entry.name);if(next===null)return;C.collision(node.entries,next,entry);entry.name=next;if(entry.child)entry.child.name=next;dirty(node);render();});
             if(!entry.child&&entry.kind!=='folder')button(items,'Replace file…',async()=>{const[f]=await pick();if(f){entry.bytes=await api.bytesOf(f);entry.raw=null;entry.issue='';fileDrafts.delete(entry);if(entry.template)entry.template.override=true;dirty(node);render();}});
             if(entry.template)button(items,'Edit source template',()=>{templateId=entry.template.id;templateTargets=new Set([node.id]);view='templates';render();});
             button(items,'Remove',()=>{if(!confirm(`Remove ${entry.name}${entry.child?' and its nested contents':''}?`))return;if(entry.kind==='folder')node.entries=node.entries.filter(e=>e!==entry&&!e.name.startsWith(entry.name));else node.entries=node.entries.filter(e=>e!==entry);dirty(node);render();});
+            const tips={'Download':entry.child?`Build and download ${entry.name} with its enclosed archive.`:`Download ${entry.name} from this ZIP.`,'Add ZIP comment':`Add a ZIP entry comment for ${entry.name}.`,'Edit ZIP comment':`Edit the ZIP entry comment for ${entry.name}.`,'Rename / move':`Change ${entry.name}'s relative path inside this ZIP.`,'Replace file…':`Choose a file to replace the contents of ${entry.name}.`,'Edit source template':`Edit the template linked to ${entry.name}.`,'Remove':`Remove ${entry.name}${entry.child?' and its enclosed layers':''} from this ZIP after confirmation.`};
+            for(const action of items.querySelectorAll('button'))archiveHint(action,tips[action.textContent]||`Manage ${entry.name}.`);
         }
         if(!node.entries.length){const empty=el('div',null,'nw-empty-archive');empty.append(icon('archive'));note(empty,'No files added yet.');files.append(empty);}
-        const actions=row(parent);button(actions,'Add files…',()=>addFiles(node));button(actions,'Add text',()=>editFile(node));button(actions,'Templates…',()=>{templateTargets=new Set([node.id]);view='templates';render();});
-        if(level!=='Easy'){button(parent,'Add folder',()=>{const name=prompt('Relative folder path','documents/');if(!name)return;const path=name.replace(/\/?$/,'/');C.collision(node.entries,path);node.entries.push({name:path,kind:'folder',bytes:new Uint8Array()});dirty(node);render();});
+        const actions=row(parent);archiveHint(button(actions,'Add files…',()=>addFiles(node)),`Choose existing files to add to ${node.name}'s ZIP.`);archiveHint(button(actions,'New text file',()=>editFile(node)),`Create a new text file with a filename and editable contents inside ${node.name}'s ZIP.`);archiveHint(button(actions,'Templates…',()=>{templateTargets=new Set([node.id]);view='templates';render();}),`Create or apply reusable text-file templates in ${node.name}'s ZIP.`);
+        if(level!=='Easy'){archiveHint(button(parent,'Add folder',()=>{const name=prompt('Relative folder path','documents/');if(!name)return;const path=name.replace(/\/?$/,'/');C.collision(node.entries,path);node.entries.push({name:path,kind:'folder',bytes:new Uint8Array()});dirty(node);render();}),`Create a folder path inside ${node.name}'s ZIP.`);
             disclosure(parent,'Decode / extract existing payload',`decode-${node.id}`,body=>drawDecode(body,node));
-            disclosure(parent,'Layer exports',`exports-${node.id}`,body=>{button(body,'Download selected layer',()=>build(true,node));button(body,'Download selected ZIP',()=>build(false,node,true));});
+            disclosure(parent,'Layer exports',`exports-${node.id}`,body=>{archiveHint(button(body,'Download selected layer',()=>build(true,node)),`Build and download ${node.name} with its ZIP archive.`);archiveHint(button(body,'Download selected ZIP',()=>build(false,node,true)),`Build and download only the ZIP archive inside ${node.name}.`);});
         }
         if(view==='payload')disclosure(parent,'Image & filename',`payload-image-${node.id}`,host=>host.append(imageParent));
-        if(node.parent)button(parent,'Remove layer',()=>{if(!confirm(`Remove ${node.name} and all its nested contents?`))return;const parent=node.parent;parent.entries=parent.entries.filter(e=>e.child!==node);dirty(parent);selected=parent.id;render();},'quiet');
+        if(node.parent)archiveHint(button(parent,'Remove layer',()=>{if(!confirm(`Remove ${node.name} and all its nested contents?`))return;const parent=node.parent;parent.entries=parent.entries.filter(e=>e.child!==node);dirty(parent);selected=parent.id;render();},'quiet'),`Remove ${node.name} and its enclosed layers from the parent ZIP after confirmation.`);
     }
     function viewFolder(node,entry){view='folder';activeFile={nodeId:node.id,entry};render();}
     function drawOptions(parent,step,changed,level='Expert') {
@@ -1072,12 +1092,13 @@
         dialog.showModal();
     }
     function render() {
+        if(archiveTooltip)archiveTooltip.hidden=true;
         if(!api||!root)return;
         if(api.getRoot()!==knownRoot){for(const node of nodes())rememberImage(node);root=api.getRoot();knownRoot=root;selected=root.id;generated=nodes().every(n=>n.image);reviewed=true;}
         const selectedNode=current();selected=selectedNode.id;
         const host=$('poly-flow'),focused=document.activeElement,key=focused?.dataset?.focus,selection=focused&&'selectionStart'in focused?[focused.selectionStart,focused.selectionEnd]:null;
         const pagePosition={left:window.scrollX,top:window.scrollY};
-        const panelPositions=['nw-run','nw-inspector','nw-editor'].map(name=>[name,name==='nw-editor'&&host.querySelector('.nw-center')?.dataset.view!==view?0:host.querySelector('.'+name)?.scrollTop||0]);
+        const panelPositions=['nw-run','nw-inspector','nw-editor','nw-preset-list'].map(name=>[name,name==='nw-editor'&&host.querySelector('.nw-center')?.dataset.view!==view?0:host.querySelector('.'+name)?.scrollTop||0]);
         for(const url of objectURLs)URL.revokeObjectURL(url);objectURLs=[];
         host.replaceChildren();const frame=el('div',null,'nw-root');frame.id='nw-root';host.append(frame);
         drawHeader(frame,selectedNode);
